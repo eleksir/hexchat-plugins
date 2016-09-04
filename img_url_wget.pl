@@ -18,7 +18,6 @@ use warnings "all";
 use threads;
 use URI::URL;
 use Image::Magick;
-use File::Copy;
 
 my $wgetpath;
 
@@ -40,7 +39,7 @@ sub hookfn;        # in defaults we trust: dunno arrayname/args name, but defaul
 
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.6-alpha2', 'Automatically grabs and downloads image URLs via wget');
+HexChat::register($script_name, '0.6-rc1', 'Automatically grabs and downloads image URLs via wget');
 
 HexChat::print("$script_name loaded\n");
 HexChat::hook_print('Channel Message', \&hookfn);
@@ -69,7 +68,7 @@ sub dlfunc(@) {
 			$rename = 0 if (($format =~ /^PNG/) and ($file =~ /png$/i));
 
 			if ($rename == 1) {
-				mv($file, sprintf("%s.%s", $file, lc($format)));
+				rename $file, sprintf("%s.%s", $file, lc($format));
 			}
 		}
 	}
