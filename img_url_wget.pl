@@ -1,21 +1,15 @@
 #!/usr/bin/perl
 
 # HexChat Perl script
-# Automatically save images that are linked in a channel to [hexchat-dir]/imgsave on linux/unices or %USERPROFILE%\Downloads on Windows
+# Automatically save images that are linked in a channel to [hexchat-dir]/imgsave on linux/unices
 # The bad_domains array may be used to exclude image URLs with domains matching any of a list of patterns. Set to an empty list to disable.
 
 # TODO: enhance urlencode with punicode
-# TODO: suppress any errors (errors only in debug mode)
 # TODO: create menu and plugin-own ini-file or some sort of config (or add one more section to hexchat config, which is possible via api)
-# NOTE: Hexchat run scripts in syncronously, all script' children should exit before main thread, so massive file download can cause
-#       "stop whe world" effect for a while, so to effectively aviod it downloading part should _fork_ childern as separate parentless
-#       processes.
-# TODO: Metaprogamming stuff (via eval) with downloader and proper mime-type handling.
 
 use strict;
 use warnings "all";
 
-use threads;
 use URI::URL;
 use Image::Magick;
 
@@ -82,21 +76,23 @@ sub cdlfunc($) {
 
 	if (defined($extension)) {
 
-		unless (-d sprintf("%s/imgsave", HexChat::get_info("configdir"))) {
-			mkdir (sprintf("%s/imgsave", HexChat::get_info("configdir")));
+		my $savepath = sprintf("%s/imgsave", HexChat::get_info("configdir"));
+
+		unless (-d $savepath) {
+			mkdir ($savepath);
 		}
 
-		my $fname = HexChat::get_info("configdir") . "/imgsave/" . s/[^\w!., -#]/_/gr . ".$extension";
+		$savepath = $savepath . "/" . s/[^\w!., -#]/_/gr . ".$extension";
 
 		if (lc($url) =~ /\.(gif|jpeg|png|webm|mp4)$/) {
 		
 			if ($1 eq $extension) {
-				$fname = HexChat::get_info("configdir") . "/imgsave/" . s/[^\w!., -#]/_/gr;
+				$savepath = HexChat::get_info("configdir") . "/imgsave/" . s/[^\w!., -#]/_/gr;
 			}
 
 		}
 
-		dlfunc($url, $fname);
+		dlfunc($url, $savepath);
 	}
 }
 
@@ -140,12 +136,10 @@ sub hookfn {
 		# here we try to catch string that can contain http or https at beginning (assume http if none)
 		# and after all ends with known extension
 		if ($_ =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
-			my $full_url = $_;
-			my $fqdn = $1;
-			my $uri_part = $2;
-			cdlfunc($full_url);
+			cdlfunc($_);
 		}
 	}
+
 	return HexChat::EAT_NONE;
 }
 
