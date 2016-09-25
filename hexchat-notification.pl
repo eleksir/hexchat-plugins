@@ -1,24 +1,53 @@
 use strict;
 use warnings "all";
+use HexChat qw(:all);
+use threads;
+use threads::shared;
 
 sub hookfn;
+sub notify(@);
+sub timeraction;
+
 my $script_name = "Notification plugin";
-HexChat::register($script_name, '0.1', 'Sends *nix desktop notifications');
+register($script_name, '0.2', 'Sends *nix desktop notifications');
 
 HexChat::print("$script_name loaded\n");
-HexChat::hook_print('Channel Message', \&hookfn);
-HexChat::hook_print('Channel Msg Hilight', \&hookfn);
-HexChat::hook_print('Channel Action', \&hookfn);
-HexChat::hook_print('Channel Action Hilight', \&hookfn);
+hook_print('Channel Message', \&hookfn);
+hook_print('Channel Msg Hilight', \&hookfn);
+hook_print('Channel Action', \&hookfn);
+hook_print('Channel Action Hilight', \&hookfn);
+
+my $active = 0;
+share($active);
 
 sub hookfn {
 	my ($nick, $text, $modechar) = @{$_[0]};
 	my $channel = HexChat::get_info('channel');
 	$channel = '' unless(defined($channel));
 	$nick = '' unless(defined($nick));
-	$text = '' unless(defined($text));
+	HexChat::strip_code($text);
 	$text =~ s/\"/\\"/g;
-	my $topic = sprintf("%s at %s says:", $nick, $channel);
-	`notify-send -u normal -t 10000 -a hexchat "$topic" -i hexchat "$text" &`;
-	return HexChat::EAT_NONE;
+	my $topic = sprintf("%s at %s says:\n", $nick, $channel);
+	$active = 1;
+	threads->create(\&notify, $topic, $text)->detach;
+
+	if ($active == 1) {
+		hook_timer( 100, \&timeraction);
+	}
+	
+	return EAT_NONE;
+}
+
+sub notify(@) {
+	my($topic, $text) = @_;
+	`notify-send -u normal -t 12000 -a hexchat "$topic" -i hexchat "$text"`;
+	$active = 0;
+}
+
+sub timeraction {
+	if ($active == 0) {
+		return REMOVE;
+	} else {
+		return KEEP;
+	}
 }
