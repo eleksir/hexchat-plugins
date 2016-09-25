@@ -25,7 +25,7 @@ if (-f "/bin/wget") {
 }
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.7', 'Automatically grabs and downloads image URLs via wget');
+HexChat::register($script_name, '0.8', 'Automatically grabs and downloads image URLs via wget');
 
 HexChat::print("$script_name loaded\n");
 HexChat::hook_print('Channel Message', \&hookfn);
@@ -43,16 +43,12 @@ sub hookfn {
 	foreach (@words) {
 		if ($_ =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
 			$active = 1;
-			threads->create(\&cdlfunc, $_);
+			threads->create(\&cdlfunc, $_)->detach;
 
 			if ($active == 1) {
 				HexChat::hook_timer( 100, sub { return REMOVE if ($active == 0); return KEEP; } );
 			}
 		}
-	}
-
-	foreach my $thread (threads->list(threads::joinable)) {
-		$thread->join();
 	}
 
 	return HexChat::EAT_NONE;
