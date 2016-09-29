@@ -29,10 +29,17 @@ sub hookfn {
 	$text =~ s/\"/\\"/g;
 	my $topic = sprintf("%s at %s says:\n", $nick, $channel);
 	$active = 1;
-	threads->create(\&notify, $topic, $text)->detach;
+	my $t = undef;
+
+	do {
+		$t = threads->create(\&notify, $topic, $text);
+		sleep 1 unless(defined($t));
+	} unless (defined($t));
+
+	$t->detach;
 
 	if ($active == 1) {
-		hook_timer( 100, \&timeraction);
+		hook_timer( 500, \&timeraction);
 	}
 	
 	return EAT_NONE;
