@@ -41,6 +41,7 @@ sub hookfn {
 	$network = '' unless(defined($network));
 
 # load settings, parse whitelists here
+	my $flag = 1; # show notification
 	my $nicklist = HexChat::plugin_pref_get('nicklist');
 	unless (defined($nicklist)) {
 		if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
@@ -68,7 +69,9 @@ sub hookfn {
 		$netlist = 0;
 	}
 
-	unless ($nicklist == 0) {
+	$flag = 0 if (($nicklist != 0) or ($chanlist != 0) or ($netlist != 0));
+
+	if ($nicklist != 0) {
 		my $nicks = HexChat::plugin_pref_get('nicks');
 
 		unless (defined($nicks)) {
@@ -84,11 +87,11 @@ sub hookfn {
 		foreach (@nicklist) {
 			next unless(defined($_));
 			next unless($_ eq '');
-			return EAT_NONE if ($_ eq $nick);
+			$flag = 1 if ($_ eq $nick);
 		}
 	}
 
-	unless ($chanlist == 0) {
+	if (($chanlist != 0) and ($flag == 0)) {
 		my $chans = HexChat::plugin_pref_get('chans');
 
 		unless (defined($chans)) {
@@ -104,31 +107,11 @@ sub hookfn {
 		foreach (@chanlist) {
 			next unless(defined($_));
 			next unless($_ eq '');
-			return EAT_NONE if ($_ eq $channel);
+			$flag = 1 if ($_ eq $channel);
 		}
 	}
 
-	unless ($nicklist == 0) {
-		my $nicks = HexChat::plugin_pref_get('nicks');
-
-		unless (defined($nicks)) {
-			if (HexChat::plugin_pref_set('nicks', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nicks = '';
-		}
-
-		my @nicklist = split(/ /, $nicks);
-
-		foreach (@nicklist) {
-			next unless(defined($_));
-			next unless($_ eq '');
-			return EAT_NONE if ($_ eq $nick);
-		}
-	}
-
-	unless ($netlist == 0) {
+	if (($netlist != 0) and ($flag == 0)) {
 		my $nets = HexChat::plugin_pref_get('nets');
 
 		unless (defined($nets)) {
@@ -144,10 +127,11 @@ sub hookfn {
 		foreach (@netlist) {
 			next unless(defined($_));
 			next unless($_ eq '');
-			return EAT_NONE if ($_ eq $network);
+			$flag = 1 if ($_ eq $network);
 		}
 	}
 # settings are loaded
+	return EAT_NONE if ($flag == 0);
 
 	HexChat::strip_code($text);
 	$text =~ s/\"/\\"/g;
@@ -188,7 +172,10 @@ sub notify_cmd {
 	my $entity = $_[0][2] // undef;
 	my $value = $_[0][3] // undef;
 
-	HexChat::print($help) unless (defined($cmd));
+	unless (defined($cmd)) {
+		HexChat::print($help);
+		return HexChat::EAT_ALL;
+	}
 
 	if ($cmd eq 'status') {
 		my $nicklist = HexChat::plugin_pref_get('nicklist');
@@ -256,6 +243,8 @@ sub notify_cmd {
 				HexChat::print("Networks whitelist now enabled\n");
 			}
 		}
+
+		return HexChat::EAT_ALL;
 	} elsif ($cmd eq 'disable') {
 		if($entity eq 'nick') {
 			if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
@@ -276,6 +265,8 @@ sub notify_cmd {
 				HexChat::print("Networks whitelist now disabled\n");
 			}
 		}
+
+		return HexChat::EAT_ALL;
 	} elsif ($cmd eq 'show') {
 		my $str = '';
 
@@ -425,6 +416,7 @@ sub notify_cmd {
 			}
 		}
 
+		return HexChat::EAT_ALL;
 	} elsif ($cmd eq 'del') {
 		if ((defined($entity)) and (defined($value))) {
 			if ($entity eq 'nick') {
@@ -515,6 +507,8 @@ sub notify_cmd {
 			}
 
 		}
+
+		return HexChat::EAT_ALL;
 	}
 
 	HexChat::print($help);
