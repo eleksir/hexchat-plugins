@@ -1,4 +1,4 @@
-# TODO: code cleanup
+# TODO: a bit more code cleanup, refactor enable|disable sub-commands
 use strict;
 use warnings "all";
 use HexChat qw(:all);
@@ -10,6 +10,7 @@ sub loadlist($);
 sub savesetting(@);
 sub notify(@);
 sub hookfn;
+sub freehooks;
 sub timeraction;
 sub notify_cmd;
 
@@ -23,14 +24,15 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.7beta', 'Sends *nix desktop notifications');
+register($script_name, '0.7rc1', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
-hook_print('Channel Message', \&hookfn);
-hook_print('Channel Msg Hilight', \&hookfn);
-hook_print('Channel Action', \&hookfn);
-hook_print('Channel Action Hilight', \&hookfn);
-hook_command 'notify', \&notify_cmd, { 'help_text' => $help };
+my @hooks;
+push @hooks, hook_print('Channel Message', \&hookfn);
+push @hooks, hook_print('Channel Msg Hilight', \&hookfn);
+push @hooks, hook_print('Channel Action', \&hookfn);
+push @hooks, hook_print('Channel Action Hilight', \&hookfn);
+push @hooks, hook_command 'notify', \&notify_cmd, { 'help_text' => $help };
 
 my $active = 0;
 share($active);
@@ -43,8 +45,6 @@ sub hookfn {
 	$channel = '' unless(defined($channel));
 	$network = '' unless(defined($network));
 
-HexChat::print("nick $nick; channel $channel; net $network\n");
-
 # load settings, parse whitelists here
 	my $flag = 1; # show notification
 	my $nicklist = loadliststatus('nicklist');
@@ -53,19 +53,17 @@ HexChat::print("nick $nick; channel $channel; net $network\n");
 	$flag = 0 if (($nicklist != 0) or ($chanlist != 0) or ($netlist != 0));
 
 	if ($nicklist != 0) {
-		my $nicks = loadlist('nicks');
-		my @nicklist = split(/ /, $nicks);
+		my @nicklist = split(/ /, loadlist('nicks'));
 
-		foreach my $n (@nicklist) {
-			next unless(defined($n));
-			next if($n eq '');
-			$flag = 1 if ($n eq $nick);
+		foreach (@nicklist) {
+			next unless(defined($_));
+			next if($_ eq '');
+			$flag = 1 if ($_ eq $nick);
 		}
 	}
 
 	if (($chanlist != 0) and ($flag == 0)) {
-		my $chans = loadlist('chans');
-		my @chanlist = split(/ /, $chans);
+		my @chanlist = split(/ /, loadlist('chans'));
 
 		foreach (@chanlist) {
 			next unless(defined($_));
@@ -75,8 +73,7 @@ HexChat::print("nick $nick; channel $channel; net $network\n");
 	}
 
 	if (($netlist != 0) and ($flag == 0)) {
-		my $nets = loadlist('nets');
-		my @netlist = split(/ /, $nets);
+		my @netlist = split(/ /, loadlist('nets'));
 
 		foreach (@netlist) {
 			next unless(defined($_));
@@ -162,7 +159,7 @@ sub notify_cmd {
 	} elsif ($cmd eq 'enable') {
 		if($entity eq 'nick') {
 			if (HexChat::plugin_pref_set('nicklist', '1') == 0) {
-				HexChat::print("Unable to save settings for $script_name]n");
+				HexChat::print("Unable to save settings for $script_name\n");
 			} else {
 				HexChat::print("Nicks whitelist now enabled\n");
 			}
@@ -206,35 +203,29 @@ sub notify_cmd {
 	} elsif ($cmd eq 'show') {
 		my $str = '';
 
-		my $nicklist = loadliststatus('nicklist');
-		if ($nicklist == 0) {
+		if (loadliststatus('nicklist') == 0) {
 			$str .= "Nicks whitelist:    disabled\n";
 		} else {
 			$str .= "Nicks whitelist:    enabled\n";
 		}
 
-		my $nicks = loadlist('nicks');
-		$str .= "Whitelisted nicks = $nicks\n";
+		$str .= "Whitelisted nicks = " . loadlist('nicks') ."\n";
 
-		my $chanlist = loadliststatus('chanlist');
-		if ($chanlist == 0) {
+		if (loadliststatus('chanlist') == 0) {
 			$str .= "Channel whitelist:  disabled\n";
 		} else {
 			$str .= "Channel whitelist:  enabled\n";
 		}
 
-		my $chans = loadlist('chans');
-		$str .= "Whitelisted channels = $chans\n";
+		$str .= "Whitelisted channels = " . loadlist('chans') . "\n";
 
-		my $netlist = loadliststatus('netlist');
-		if ($netlist == 0) {
+		if (loadliststatus('netlist') == 0) {
 			$str .= "Networks whitelist: disabled\n";
 		} else {
 			$str .= "Networks whitelist: enabled\n";
 		}
 
-		my $nets = loadlist('nets');
-		$str .= "Whitelisted networks = $nets\n";
+		$str .= "Whitelisted networks = " . loadlist('nets') . "\n";
 
 		HexChat::print($str);
 		return HexChat::EAT_ALL;
@@ -242,8 +233,7 @@ sub notify_cmd {
 		my $str = '';
 		if ((defined($entity)) and (defined($value))) {
 			if ($entity eq 'nick') {
-				my $nicks = loadlist('nicks');
-				$nicks .= " $value";
+				my $nicks .= loadlist('nicks') . " $value";
 
 				unless (defined(savesetting('nicks', $nicks))) {
 					return HexChat::EAT_ALL;
@@ -252,8 +242,7 @@ sub notify_cmd {
 				HexChat::print("Nicks whitelist now: $nicks\n");
 				return HexChat::EAT_ALL;
 			} elsif ($entity eq 'chan') {
-				my $chans = loadlist('chans');
-				$chans .= " $value";
+				my $chans .= loadlist('chans') . " $value";
 
 				unless (defined(savesetting('chans', $chans))) {
 					return HexChat::EAT_ALL;
@@ -262,8 +251,7 @@ sub notify_cmd {
 				HexChat::print("Channels whitelist now: $chans\n");
 				return HexChat::EAT_ALL;
 			} elsif ($entity eq 'net') {
-				my $nets = loadlist('nets');
-				$nets .= " $value";
+				my $nets .= loadlist('nets') . " $value";
 
 				unless (defined(savesetting('nets', $nets))) {
 					return HexChat::EAT_ALL;
@@ -278,14 +266,13 @@ sub notify_cmd {
 	} elsif ($cmd eq 'del') {
 		if ((defined($entity)) and (defined($value))) {
 			if ($entity eq 'nick') {
-				my $nicks = loadlist('nicks');
-				my @nicklist = split(/ /, $nicks);
+				my @nicklist = split(/ /, loadlist('nicks'));
 
 				for (my $i = 0; $i < @nicklist; $i++) {
 					$nicklist[$i] = '' if ($nicklist[$i] eq $value);
 				}
 
-				$nicks = join(' ', @nicklist);
+				my $nicks = join(' ', @nicklist);
 				$nicks =~ s/ +/ /g;
 
 				unless (defined(savesetting('nicks', $nicks))) {
@@ -297,14 +284,13 @@ sub notify_cmd {
 			}
 
 			if ($entity eq 'chan') {
-				my $chans = loadlist('chans');
-				my @chanlist = split(/ /, $chans);
+				my @chanlist = split(/ /, loadlist('chans'));
 
 				for (my $i = 0; $i < @chanlist; $i++) {
 					$chanlist[$i] = '' if ($chanlist[$i] eq $value);
 				}
 
-				$chans = join(' ', @chanlist);
+				my $chans = join(' ', @chanlist);
 				$chans =~ s/ +/ /g;
 
 				unless (defined(savesetting('chans', $chans))) {
@@ -316,14 +302,13 @@ sub notify_cmd {
 			}
 
 			if ($entity eq 'net') {
-				my $nets = loadlist('nets');
-				my @netlist = split(/ /, $nets);
+				my @netlist = split(/ /, loadlist('nets'));
 
 				for (my $i = 0; $i < @netlist; $i++) {
 					$netlist[$i] = '' if ($netlist[$i] eq $value);
 				}
 
-				$nets = join(' ', @netlist);
+				my $nets = join(' ', @netlist);
 				$nets =~ s/ +/ /g;
 
 				unless (defined(savesetting('nets', $nets))) {
@@ -358,7 +343,7 @@ sub loadlist($){
 	my $setting = shift;
 	my $val = HexChat::plugin_pref_get($setting);
 
-	unless (defined($setting)) {
+	unless (defined($val)) {
 		savesetting($setting, '');
 		$val = '';
 	}
@@ -376,4 +361,12 @@ sub savesetting(@) {
 	}
 
 	return 1;
+}
+
+sub freehooks {
+	foreach (@hooks) {
+		HexChat::unhook($_);
+	}
+	
+	return HexChat::EAT_ALL;
 }
