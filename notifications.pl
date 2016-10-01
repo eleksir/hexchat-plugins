@@ -43,6 +43,8 @@ sub hookfn {
 	$channel = '' unless(defined($channel));
 	$network = '' unless(defined($network));
 
+HexChat::print("nick $nick; channel $channel; net $network\n");
+
 # load settings, parse whitelists here
 	my $flag = 1; # show notification
 	my $nicklist = loadliststatus('nicklist');
@@ -130,7 +132,11 @@ sub notify_cmd {
 		return HexChat::EAT_ALL;
 	}
 
-	if ($cmd eq 'status') {
+	if ($cmd eq 'info') {
+		my $network = HexChat::get_info('network') // 'unknown';
+		HexChat::print("Network name for whitelist: $network\n");
+		return HexChat::EAT_ALL;
+	} elsif ($cmd eq 'status') {
 		my $nicklist = loadliststatus('nicklist');
 		my $chanlist = loadliststatus('chanlist');
 		my $netlist =  loadliststatus('netlist');
