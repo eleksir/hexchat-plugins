@@ -3,21 +3,22 @@
 my $ShowMode = "mode \00310%s\003 \002%s\002 by \002%s\002";
 my $ModName = "*savebuff";
 
-Xchat::register('ZNC-Buffer','1.00','Display the on-join buffer for ZNC nicely');
+Xchat::register('ZNC-Buffer','1.00','Display the on-join buffer for ZNC nicely', \&freehook);
 
-Xchat::hook_server('PRIVMSG',\&ProcessPMSG);
-Xchat::hook_server('MODE',\&ShowModes);
-Xchat::hook_print('Channel Operator',\&DontDisplay);
-Xchat::hook_print('Channel DeOp',\&DontDisplay);
-Xchat::hook_print('Channel Voice',\&DontDisplay);
-Xchat::hook_print('Channel DeVoice',\&DontDisplay);
-Xchat::hook_print('Channel Ban',\&DontDisplay);
-Xchat::hook_print('Channel UnBan',\&DontDisplay);
-Xchat::hook_print('Channel Mode Generic',\&DontDisplay);
-Xchat::hook_print('Channel Set Key',\&DontDisplay);
-Xchat::hook_print('Channel Set Limit',\&DontDisplay);
-Xchat::hook_print('Channel Remove Keyword',\&DontDisplay);
-Xchat::hook_print('Channel Remove Limit',\&DontDisplay);
+my @hooks;
+push @hooks, Xchat::hook_server('PRIVMSG',\&ProcessPMSG);
+push @hooks, Xchat::hook_server('MODE',\&ShowModes);
+push @hooks, Xchat::hook_print('Channel Operator',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel DeOp',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Voice',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel DeVoice',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Ban',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel UnBan',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Mode Generic',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Set Key',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Set Limit',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Remove Keyword',\&DontDisplay);
+push @hooks, Xchat::hook_print('Channel Remove Limit',\&DontDisplay);
 
 sub ShowMode {
         my ($Channel,$Modes,$Nick) = @_;
@@ -89,4 +90,12 @@ sub ShowModes {
         ShowMode($Channel,$Modes,$Nick);
 
         return Xchat::EAT_NONE; 
+}
+
+sub freehooks {
+	foreach (@hooks) {
+		HexChat::unhook($_);
+	}
+
+	return HexChat::EAT_ALL;
 }
