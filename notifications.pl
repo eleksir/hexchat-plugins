@@ -1,12 +1,15 @@
-# TODO: huge cleanup and code refactor required!
+# TODO: code cleanup
 use strict;
 use warnings "all";
 use HexChat qw(:all);
 use threads;
 use threads::shared;
 
-sub hookfn;
+sub loadliststatus($);
+sub loadlist($);
+sub savesetting(@);
 sub notify(@);
+sub hookfn;
 sub timeraction;
 sub notify_cmd;
 
@@ -20,7 +23,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.5', 'Sends *nix desktop notifications');
+register($script_name, '0.7beta', 'Sends *nix desktop notifications');
 
 HexChat::print("$script_name loaded\n");
 hook_print('Channel Message', \&hookfn);
@@ -42,94 +45,44 @@ sub hookfn {
 
 # load settings, parse whitelists here
 	my $flag = 1; # show notification
-	my $nicklist = HexChat::plugin_pref_get('nicklist');
-	unless (defined($nicklist)) {
-		if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
-			HexChat::print("Unable to save settings for $script_name\n");
-		}
-
-		$nicklist = 0;
-	}
-
-	my $chanlist = HexChat::plugin_pref_get('chanlist');
-	unless (defined($chanlist)) {
-		if (HexChat::plugin_pref_set('chanlist', '0') == 0) {
-			HexChat::print("Unable to save settings for $script_name\n");
-		}
-
-		$chanlist = 0;
-	}
-
-	my $netlist = HexChat::plugin_pref_get('netlist');
-	unless (defined($netlist)) {
-		if (HexChat::plugin_pref_set('netlist', '0') == 0) {
-			HexChat::print("Unable to save settings for $script_name\n");
-		}
-
-		$netlist = 0;
-	}
-
+	my $nicklist = loadliststatus('nicklist');
+	my $chanlist = loadliststatus('chanlist');
+	my $netlist =  loadliststatus('netlist');
 	$flag = 0 if (($nicklist != 0) or ($chanlist != 0) or ($netlist != 0));
 
 	if ($nicklist != 0) {
-		my $nicks = HexChat::plugin_pref_get('nicks');
-
-		unless (defined($nicks)) {
-			if (HexChat::plugin_pref_set('nicks', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nicks = '';
-		}
-
+		my $nicks = loadlist('nicks');
 		my @nicklist = split(/ /, $nicks);
 
-		foreach (@nicklist) {
-			next unless(defined($_));
-			next unless($_ eq '');
-			$flag = 1 if ($_ eq $nick);
+		foreach my $n (@nicklist) {
+			next unless(defined($n));
+			next if($n eq '');
+			$flag = 1 if ($n eq $nick);
 		}
 	}
 
 	if (($chanlist != 0) and ($flag == 0)) {
-		my $chans = HexChat::plugin_pref_get('chans');
-
-		unless (defined($chans)) {
-			if (HexChat::plugin_pref_set('chans', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$chans = '';
-		}
-
+		my $chans = loadlist('chans');
 		my @chanlist = split(/ /, $chans);
 
 		foreach (@chanlist) {
 			next unless(defined($_));
-			next unless($_ eq '');
+			next if($_ eq '');
 			$flag = 1 if ($_ eq $channel);
 		}
 	}
 
 	if (($netlist != 0) and ($flag == 0)) {
-		my $nets = HexChat::plugin_pref_get('nets');
-
-		unless (defined($nets)) {
-			if (HexChat::plugin_pref_set('nets', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nets = '';
-		}
-
+		my $nets = loadlist('nets');
 		my @netlist = split(/ /, $nets);
 
 		foreach (@netlist) {
 			next unless(defined($_));
-			next unless($_ eq '');
+			next if($_ eq '');
 			$flag = 1 if ($_ eq $network);
 		}
 	}
+
 # settings are loaded
 	return EAT_NONE if ($flag == 0);
 
@@ -178,32 +131,9 @@ sub notify_cmd {
 	}
 
 	if ($cmd eq 'status') {
-		my $nicklist = HexChat::plugin_pref_get('nicklist');
-		unless (defined($nicklist)) {
-			if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nicklist = 0;
-		}
-
-		my $chanlist = HexChat::plugin_pref_get('chanlist');
-		unless (defined($chanlist)) {
-			if (HexChat::plugin_pref_set('chanlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$chanlist = 0;
-		}
-
-		my $netlist = HexChat::plugin_pref_get('netlist');
-		unless (defined($netlist)) {
-			if (HexChat::plugin_pref_set('netlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$netlist = 0;
-		}
+		my $nicklist = loadliststatus('nicklist');
+		my $chanlist = loadliststatus('chanlist');
+		my $netlist =  loadliststatus('netlist');
 
 		if (($nicklist == 0) and ($chanlist == 0) and ($netlist == 0)) {
 			HexChat::print("All whitelists are disbled, will not apply any filters, and be show all notifications.\n");
@@ -270,82 +200,34 @@ sub notify_cmd {
 	} elsif ($cmd eq 'show') {
 		my $str = '';
 
-		my $nicklist = HexChat::plugin_pref_get('nicklist');
-		unless (defined($nicklist)) {
-			if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nicklist = 0;
-		}
-
+		my $nicklist = loadliststatus('nicklist');
 		if ($nicklist == 0) {
 			$str .= "Nicks whitelist:    disabled\n";
 		} else {
 			$str .= "Nicks whitelist:    enabled\n";
 		}
 
-		my $nicks = HexChat::plugin_pref_get('nicks');
-		unless (defined($nicks)) {
-			if (HexChat::plugin_pref_set('nicks', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nicks = '';
-		}
-
+		my $nicks = loadlist('nicks');
 		$str .= "Whitelisted nicks = $nicks\n";
 
-		my $chanlist = HexChat::plugin_pref_get('chanlist');
-		unless (defined($chanlist)) {
-			if (HexChat::plugin_pref_set('chanlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$chanlist = 0;
-		}
-
+		my $chanlist = loadliststatus('chanlist');
 		if ($chanlist == 0) {
 			$str .= "Channel whitelist:  disabled\n";
 		} else {
 			$str .= "Channel whitelist:  enabled\n";
 		}
 
-		my $chans = HexChat::plugin_pref_get('chans');
-		unless (defined($chans)) {
-			if (HexChat::plugin_pref_set('chans', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$chans = '';
-		}
-
+		my $chans = loadlist('chans');
 		$str .= "Whitelisted channels = $chans\n";
 
-		my $netlist = HexChat::plugin_pref_get('netlist');
-		unless (defined($netlist)) {
-			if (HexChat::plugin_pref_set('netlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$netlist = 0;
-		}
-
+		my $netlist = loadliststatus('netlist');
 		if ($netlist == 0) {
 			$str .= "Networks whitelist: disabled\n";
 		} else {
 			$str .= "Networks whitelist: enabled\n";
 		}
 
-		my $nets = HexChat::plugin_pref_get('nets');
-		unless (defined($nets)) {
-			if (HexChat::plugin_pref_set('nets', '') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			}
-
-			$nets = '';
-		}
-
+		my $nets = loadlist('nets');
 		$str .= "Whitelisted networks = $nets\n";
 
 		HexChat::print($str);
@@ -354,60 +236,30 @@ sub notify_cmd {
 		my $str = '';
 		if ((defined($entity)) and (defined($value))) {
 			if ($entity eq 'nick') {
-				my $nicks = HexChat::plugin_pref_get('nicks');
-
-				unless (defined($nicks)) {
-					if (HexChat::plugin_pref_set('nicks', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$nicks = '';
-				}
-
+				my $nicks = loadlist('nicks');
 				$nicks .= " $value";
 
-				if (HexChat::plugin_pref_set('nicks', $nicks) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('nicks', $nicks))) {
 					return HexChat::EAT_ALL;
 				}
 
 				HexChat::print("Nicks whitelist now: $nicks\n");
 				return HexChat::EAT_ALL;
 			} elsif ($entity eq 'chan') {
-				my $chans = HexChat::plugin_pref_get('chans');
-
-				unless (defined($chans)) {
-					if (HexChat::plugin_pref_set('chans', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$chans = '';
-				}
-
+				my $chans = loadlist('chans');
 				$chans .= " $value";
 
-				if (HexChat::plugin_pref_set('chans', $chans) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('chans', $chans))) {
 					return HexChat::EAT_ALL;
 				}
 
 				HexChat::print("Channels whitelist now: $chans\n");
 				return HexChat::EAT_ALL;
 			} elsif ($entity eq 'net') {
-				my $nets = HexChat::plugin_pref_get('nets');
-
-				unless (defined($nets)) {
-					if (HexChat::plugin_pref_set('nets', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$nets = '';
-				}
-
+				my $nets = loadlist('nets');
 				$nets .= " $value";
 
-				if (HexChat::plugin_pref_set('nets', $nets) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('nets', $nets))) {
 					return HexChat::EAT_ALL;
 				}
 
@@ -420,16 +272,7 @@ sub notify_cmd {
 	} elsif ($cmd eq 'del') {
 		if ((defined($entity)) and (defined($value))) {
 			if ($entity eq 'nick') {
-				my $nicks = HexChat::plugin_pref_get('nicks');
-
-				unless (defined($nicks)) {
-					if (HexChat::plugin_pref_set('nicks', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$nicks = '';
-				}
-
+				my $nicks = loadlist('nicks');
 				my @nicklist = split(/ /, $nicks);
 
 				for (my $i = 0; $i < @nicklist; $i++) {
@@ -439,8 +282,7 @@ sub notify_cmd {
 				$nicks = join(' ', @nicklist);
 				$nicks =~ s/ +/ /g;
 
-				if (HexChat::plugin_pref_set('nicks', $nicks) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('nicks', $nicks))) {
 					return HexChat::EAT_ALL;
 				}
 
@@ -449,16 +291,7 @@ sub notify_cmd {
 			}
 
 			if ($entity eq 'chan') {
-				my $chans = HexChat::plugin_pref_get('chans');
-
-				unless (defined($chans)) {
-					if (HexChat::plugin_pref_set('chans', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$chans = '';
-				}
-
+				my $chans = loadlist('chans');
 				my @chanlist = split(/ /, $chans);
 
 				for (my $i = 0; $i < @chanlist; $i++) {
@@ -468,8 +301,7 @@ sub notify_cmd {
 				$chans = join(' ', @chanlist);
 				$chans =~ s/ +/ /g;
 
-				if (HexChat::plugin_pref_set('chans', $chans) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('chans', $chans))) {
 					return HexChat::EAT_ALL;
 				}
 
@@ -478,16 +310,7 @@ sub notify_cmd {
 			}
 
 			if ($entity eq 'net') {
-				my $nets = HexChat::plugin_pref_get('nets');
-
-				unless (defined($nets)) {
-					if (HexChat::plugin_pref_set('nets', '') == 0) {
-						HexChat::print("Unable to save settings for $script_name\n");
-					}
-
-					$nets = '';
-				}
-
+				my $nets = loadlist('nets');
 				my @netlist = split(/ /, $nets);
 
 				for (my $i = 0; $i < @netlist; $i++) {
@@ -497,12 +320,11 @@ sub notify_cmd {
 				$nets = join(' ', @netlist);
 				$nets =~ s/ +/ /g;
 
-				if (HexChat::plugin_pref_set('nets', $nets) == 0) {
-					HexChat::print("Unable to save settings for $script_name\n");
+				unless (defined(savesetting('nets', $nets))) {
 					return HexChat::EAT_ALL;
 				}
 
-				HexChat::print("Networkss whitelist now: $nets\n");
+				HexChat::print("Networks whitelist now: $nets\n");
 				return HexChat::EAT_ALL;
 			}
 
@@ -513,4 +335,39 @@ sub notify_cmd {
 
 	HexChat::print($help);
 	return HexChat::EAT_ALL;
+}
+
+sub loadliststatus($){
+	my $listtype = shift;
+	my $list = HexChat::plugin_pref_get($listtype);
+	unless (defined($list)) {
+		savesetting('list', '0');
+		$list = 0;
+	}
+
+	return $list;
+}
+
+sub loadlist($){
+	my $setting = shift;
+	my $val = HexChat::plugin_pref_get($setting);
+
+	unless (defined($setting)) {
+		savesetting($setting, '');
+		$val = '';
+	}
+
+	return $val;
+}
+
+sub savesetting(@) {
+	my $setting = shift;
+	my $value = shift;
+
+	if (HexChat::plugin_pref_set($setting, $value) == 0) {
+		HexChat::print("Unable to save settings for $script_name\n");
+		return undef;
+	}
+
+	return 1;
 }
