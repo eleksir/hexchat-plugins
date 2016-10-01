@@ -13,6 +13,7 @@ sub cdlfunc($);    # thread, that checks and downloads stuff
 sub is_picture($);
 sub urlencode($);
 sub hookfn;
+sub freehooks;
 
 my $wgetpath;
 
@@ -25,13 +26,14 @@ if (-f "/bin/wget") {
 }
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.8', 'Automatically grabs and downloads image URLs via wget');
+HexChat::register($script_name, '0.8.1', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
-HexChat::hook_print('Channel Message', \&hookfn);
-HexChat::hook_print('Channel Msg Hilight', \&hookfn);
-HexChat::hook_print('Channel Action', \&hookfn);
-HexChat::hook_print('Channel Action Hilight', \&hookfn);
+my @hooks;
+push @hooks, HexChat::hook_print('Channel Message', \&hookfn);
+push @hooks, HexChat::hook_print('Channel Msg Hilight', \&hookfn);
+push @hooks, HexChat::hook_print('Channel Action', \&hookfn);
+push @hooks, HexChat::hook_print('Channel Action Hilight', \&hookfn);
 
 my $active = 0;
 share($active);
@@ -126,4 +128,12 @@ sub urlencode($) {
 	$url = $urlobj->as_string;
 	undef $urlobj;
 	return $url;
+}
+
+sub freehooks {
+	foreach (@hooks) {
+		HexChat::unhook($_);
+	}
+
+	return HexChat::EAT_ALL;
 }
