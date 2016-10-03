@@ -1,4 +1,3 @@
-# TODO: a bit more code cleanup, refactor enable|disable sub-commands
 use strict;
 use warnings "all";
 use HexChat qw(:all);
@@ -24,7 +23,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.7rc1', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.7', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -41,7 +40,7 @@ sub hookfn {
 	my ($nick, $text, $modechar) = @{$_[0]};
 	my $channel = HexChat::get_info('channel');
 	my $network = HexChat::get_info('network');
-	$nick = '' unless(defined($nick));
+	$nick =    '' unless(defined($nick));
 	$channel = '' unless(defined($channel));
 	$network = '' unless(defined($network));
 
@@ -120,9 +119,9 @@ sub timeraction {
 }
 
 sub notify_cmd {
-	my $cmd = $_[0][1] // undef;
+	my $cmd = $_[0][1]    // undef;
 	my $entity = $_[0][2] // undef;
-	my $value = $_[0][3] // undef;
+	my $value = $_[0][3]  // undef;
 
 	unless (defined($cmd)) {
 		HexChat::print($help);
@@ -158,21 +157,15 @@ sub notify_cmd {
 		return HexChat::EAT_ALL;
 	} elsif ($cmd eq 'enable') {
 		if($entity eq 'nick') {
-			if (HexChat::plugin_pref_set('nicklist', '1') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			} else {
+			if (defined(savesetting('nicklist', '1'))) {
 				HexChat::print("Nicks whitelist now enabled\n");
 			}
 		} elsif ($entity eq 'chan') {
-			if (HexChat::plugin_pref_set('chanlist', '1') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			} else {
+			if (defined(savesetting('chanlist', '1'))) {
 				HexChat::print("Channel whitelist now enabled\n");
 			}
 		} elsif ($entity eq 'net') {
-			if (HexChat::plugin_pref_set('netlist', '1') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			} else {
+			if (defined(savesetting('netlist', '1'))) {
 				HexChat::print("Networks whitelist now enabled\n");
 			}
 		}
@@ -180,21 +173,15 @@ sub notify_cmd {
 		return HexChat::EAT_ALL;
 	} elsif ($cmd eq 'disable') {
 		if($entity eq 'nick') {
-			if (HexChat::plugin_pref_set('nicklist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name]n");
-			} else {
+			if (defined(savesetting('nicklist', '0'))) {
 				HexChat::print("Nicks whitelist now disabled\n");
 			}
 		} elsif ($entity eq 'chan') {
-			if (HexChat::plugin_pref_set('chanlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			} else {
+			if (defined(savesetting('chanlist', '0'))) {
 				HexChat::print("Channel whitelist now disabled\n");
 			}
 		} elsif ($entity eq 'net') {
-			if (HexChat::plugin_pref_set('netlist', '0') == 0) {
-				HexChat::print("Unable to save settings for $script_name\n");
-			} else {
+			if (defined(savesetting('netlist', '0'))) {
 				HexChat::print("Networks whitelist now disabled\n");
 			}
 		}
