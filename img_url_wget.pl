@@ -26,7 +26,7 @@ if (-f "/bin/wget") {
 }
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.8.1', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
+HexChat::register($script_name, '0.8.2', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -80,7 +80,7 @@ sub dlfunc(@) {
 	my $file = shift;
 
 	$url = urlencode($url);
-	`$wgetpath --no-check-certificate -q -T 20 -O '$file' -o /dev/null '$url'`;
+	system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $file, '-o', '/dev/null', $url);
 
 	if ($file =~ /(png|jpe?g|gif)$/i){
 		my $im = Image::Magick->new();

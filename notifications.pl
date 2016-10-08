@@ -23,7 +23,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.7', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.7.1', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -106,7 +106,7 @@ sub hookfn {
 
 sub notify(@) {
 	my($topic, $text) = @_;
-	`notify-send -u normal -t 12000 -a hexchat "$topic" -i hexchat "$text"`;
+	system("notify-send", "-u", "normal", "-t", "12000", "-a", "hexchat", $topic, "-i", "hexchat", $text);
 	$active = 0;
 }
 
