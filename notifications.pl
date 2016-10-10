@@ -23,7 +23,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.7.1', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.7.2', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -31,7 +31,7 @@ push @hooks, hook_print('Channel Message', \&hookfn);
 push @hooks, hook_print('Channel Msg Hilight', \&hookfn);
 push @hooks, hook_print('Channel Action', \&hookfn);
 push @hooks, hook_print('Channel Action Hilight', \&hookfn);
-push @hooks, hook_command 'notify', \&notify_cmd, { 'help_text' => $help };
+push @hooks, hook_command('notify', \&notify_cmd);
 
 my $active = 0;
 share($active);
@@ -91,7 +91,7 @@ sub hookfn {
 	my $t = undef;
 
 	do {
-		$t = threads->create(\&notify, $topic, $text);
+		$t = threads->create('notify', $topic, $text);
 		sleep 1 unless(defined($t));
 	} unless (defined($t));
 
@@ -101,6 +101,11 @@ sub hookfn {
 		hook_timer( 500, \&timeraction);
 	}
 	
+	undef $nick;     undef $text;     undef $modechar;
+	undef $channel;  undef $network;
+	undef $flag;
+	undef $nicklist; undef $chanlist; undef $netlist;
+
 	return EAT_NONE;
 }
 
@@ -108,6 +113,7 @@ sub notify(@) {
 	my($topic, $text) = @_;
 	system("notify-send", "-u", "normal", "-t", "12000", "-a", "hexchat", $topic, "-i", "hexchat", $text);
 	$active = 0;
+	undef $topic; undef $text;
 }
 
 sub timeraction {
@@ -318,11 +324,13 @@ sub notify_cmd {
 sub loadliststatus($){
 	my $listtype = shift;
 	my $list = HexChat::plugin_pref_get($listtype);
+
 	unless (defined($list)) {
 		savesetting('list', '0');
 		$list = 0;
 	}
 
+	undef $listtype;
 	return $list;
 }
 
@@ -335,6 +343,7 @@ sub loadlist($){
 		$val = '';
 	}
 
+	undef $setting;
 	return $val;
 }
 
@@ -347,6 +356,7 @@ sub savesetting(@) {
 		return undef;
 	}
 
+	undef $setting;
 	return 1;
 }
 

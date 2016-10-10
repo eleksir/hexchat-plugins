@@ -26,7 +26,7 @@ if (-f "/bin/wget") {
 }
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.8.2', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
+HexChat::register($script_name, '0.8.4', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -45,13 +45,24 @@ sub hookfn {
 	foreach (@words) {
 		if ($_ =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
 			$active = 1;
-			threads->create(\&cdlfunc, $_)->detach;
+			my $t = undef;
+
+			do {
+				$t = threads->create('cdlfunc', $_);
+				sleep 1 unless(defined($t));
+			} unless (defined($t));
+
+			$t->detach;
+			undef $t;
 
 			if ($active == 1) {
 				HexChat::hook_timer( 100, sub { return REMOVE if ($active == 0); return KEEP; } );
 			}
 		}
 	}
+
+	@words = -1; undef @words;
+	undef $nick; undef $text; undef $modechar;
 
 	return HexChat::EAT_NONE;
 }
@@ -70,9 +81,11 @@ sub cdlfunc($) {
 		}
 
 		dlfunc($url, $savepath);
+		undef $savepath;
 	}
 
 	$active = 0;
+	undef $url; undef $extension;
 }
 
 sub dlfunc(@) {
@@ -93,9 +106,11 @@ sub dlfunc(@) {
 			$rename = 0 if (($format =~ /^PNG/) and ($file =~ /png$/i));
 			rename $file, sprintf("%s.%s", $file, lc($format)) if ($rename == 1);
 		}
+
+		undef $im; undef $rename;
 	}
 
-	return 0;
+	undef $url; undef $file;
 }
 
 sub is_picture($) {
@@ -104,6 +119,11 @@ sub is_picture($) {
 	my $r = undef;
 
 	$r = `$wgetpath --no-check-certificate -q --method=HEAD -S --timeout=5 "$url" 2>&1`;
+	undef $url;
+
+	if ($? != 0) {
+		return undef;
+	}
 
 	foreach (split(/\n/, $r)) {
 		next unless($_ =~ /Content\-Type: (.+)/);
@@ -112,14 +132,17 @@ sub is_picture($) {
 	}
 
 	if (defined($r)) {
-		if ($r =~ /^image\/gif/)  {return 'gif';};
-		if ($r =~ /^image\/jpe?g/){return 'jpeg';};
-		if ($r =~ /^image\/png/)  {return 'png';};
-		if ($r =~ /^video\/webm/) {return 'webm';};
-		if ($r =~ /^video\/mp4/)  {return 'mp4';};
+		if    ($r =~ /^image\/gif/)  { $r = 'gif'; }
+		elsif ($r =~ /^image\/jpe?g/){ $r = 'jpeg';}
+		elsif ($r =~ /^image\/png/)  { $r = 'png'; }
+		elsif ($r =~ /^video\/webm/) { $r = 'webm';}
+		elsif ($r =~ /^video\/mp4/)  { $r = 'mp4'; }
+		else                         { $r = undef; }
+	} else {
+		$r = undef;
 	}
 
-	return undef;
+	return $r;
 }
 
 sub urlencode($) {
