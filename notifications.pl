@@ -1,4 +1,3 @@
-# TODO: handle quotes in "/notify add netname network" with space containing entities
 use strict;
 use warnings "all";
 use HexChat qw(:all);
@@ -26,7 +25,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.8', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.8.1', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -128,9 +127,10 @@ sub timeraction {
 }
 
 sub notify_cmd {
-	my $cmd = $_[0][1]    // undef;
-	my $entity = $_[0][2] // undef;
-	my $value = $_[0][3]  // undef;
+	shift(@{$_[0]});
+	my $cmd = shift(@{$_[0]});
+	my $entity = shift(@{$_[0]});
+	my $value = join(' ', @{$_[0]});
 
 	unless (defined($cmd)) {
 		HexChat::print($help);
@@ -304,9 +304,12 @@ sub notify_cmd {
 				my @netlist;
 
 				foreach (@list) {
+					HexChat::printf("_: %s, value: %s", $_, $value);
 					next if($_ eq $value);
-					push @netlist, $value;
+					push @netlist, $_;
 				}
+
+				@list = -1; undef @list;
 
 				unless (defined(savelist('nets', @netlist))) {
 					return HexChat::EAT_ALL;

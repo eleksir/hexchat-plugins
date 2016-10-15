@@ -8,8 +8,7 @@ use warnings "all";
 use URI::URL;
 use Image::Magick;
 
-sub dlfunc(@);
-sub cdlfunc($);    # thread, that checks and downloads stuff
+sub dlfunc($);    # thread, that checks and downloads stuff
 sub is_picture($);
 sub urlencode($);
 sub hookfn;
@@ -26,7 +25,7 @@ if (-f "/bin/wget") {
 }
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.8.4', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
+HexChat::register($script_name, '0.8.5', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -48,7 +47,7 @@ sub hookfn {
 			my $t = undef;
 
 			do {
-				$t = threads->create('cdlfunc', $_);
+				$t = threads->create('dlfunc', $_);
 				sleep 1 unless(defined($t));
 			} unless (defined($t));
 
@@ -67,7 +66,7 @@ sub hookfn {
 	return HexChat::EAT_NONE;
 }
 
-sub cdlfunc($) {
+sub dlfunc($) {
 	my $url = shift;
 	my $extension = is_picture($url);
 
@@ -80,37 +79,29 @@ sub cdlfunc($) {
 				$savepath = HexChat::get_info("configdir") . "/imgsave/" . s/[^\w!., -#]/_/gr;
 		}
 
-		dlfunc($url, $savepath);
+		$url = urlencode($url);
+		system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $file, '-o', '/dev/null', $url);
+
+		if ($file =~ /(png|jpe?g|gif)$/i){
+			my $im = Image::Magick->new();
+			my $rename = 1;
+			my (undef, undef, undef, $format) = $im->Ping($savepath);
+
+			if (defined($format)) {
+				$rename = 0 if (($format eq 'JPEG') and ($file =~ /jpe?g$/i));
+				$rename = 0 if (($format eq 'GIF') and ($file =~ /gif$/i));
+				$rename = 0 if (($format =~ /^PNG/) and ($file =~ /png$/i));
+				rename $savepath, sprintf("%s.%s", $savepath, lc($format)) if ($rename == 1);
+			}
+
+			undef $im; undef $rename;
+		}
+
 		undef $savepath;
 	}
 
 	$active = 0;
 	undef $url; undef $extension;
-}
-
-sub dlfunc(@) {
-	my $url = shift;
-	my $file = shift;
-
-	$url = urlencode($url);
-	system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $file, '-o', '/dev/null', $url);
-
-	if ($file =~ /(png|jpe?g|gif)$/i){
-		my $im = Image::Magick->new();
-		my $rename = 1;
-		my (undef, undef, undef, $format) = $im->Ping($file);
-
-		if (defined($format)) {
-			$rename = 0 if (($format eq 'JPEG') and ($file =~ /jpe?g$/i));
-			$rename = 0 if (($format eq 'GIF') and ($file =~ /gif$/i));
-			$rename = 0 if (($format =~ /^PNG/) and ($file =~ /png$/i));
-			rename $file, sprintf("%s.%s", $file, lc($format)) if ($rename == 1);
-		}
-
-		undef $im; undef $rename;
-	}
-
-	undef $url; undef $file;
 }
 
 sub is_picture($) {
@@ -121,23 +112,23 @@ sub is_picture($) {
 	$r = `$wgetpath --no-check-certificate -q --method=HEAD -S --timeout=5 "$url" 2>&1`;
 	undef $url;
 
-	if ($? != 0) {
-		return undef;
-	}
+	if ($? == 0) {
+		foreach (split(/\n/, $r)) {
+			next unless($_ =~ /Content\-Type: (.+)/);
+			$r = ($1); chomp($r);
+			last;
+		}
 
-	foreach (split(/\n/, $r)) {
-		next unless($_ =~ /Content\-Type: (.+)/);
-		$r = ($1); chomp($r);
-		last;
-	}
-
-	if (defined($r)) {
-		if    ($r =~ /^image\/gif/)  { $r = 'gif'; }
-		elsif ($r =~ /^image\/jpe?g/){ $r = 'jpeg';}
-		elsif ($r =~ /^image\/png/)  { $r = 'png'; }
-		elsif ($r =~ /^video\/webm/) { $r = 'webm';}
-		elsif ($r =~ /^video\/mp4/)  { $r = 'mp4'; }
-		else                         { $r = undef; }
+		if (defined($r)) {
+			if    ($r =~ /^image\/gif/)  { $r = 'gif'; }
+			elsif ($r =~ /^image\/jpe?g/){ $r = 'jpeg';}
+			elsif ($r =~ /^image\/png/)  { $r = 'png'; }
+			elsif ($r =~ /^video\/webm/) { $r = 'webm';}
+			elsif ($r =~ /^video\/mp4/)  { $r = 'mp4'; }
+			else                         { $r = undef; }
+		} else {
+			$r = undef;
+		}
 	} else {
 		$r = undef;
 	}
