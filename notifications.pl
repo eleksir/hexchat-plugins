@@ -25,7 +25,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.8.2', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.8.3', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
