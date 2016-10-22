@@ -14,18 +14,10 @@ sub urlencode($);
 sub hookfn;
 sub freehooks;
 
-my $wgetpath;
-
-if (-f "/bin/wget") {
-	$wgetpath = '/bin/wget';
-} elsif (-f "/usr/bin/wget") {
-	$wgetpath = '/usr/bin/wget';
-} elsif (-f "/usr/local/bin/wget") {
-	$wgetpath = '/usr/local/bin/wget';
-}
+my $wgetpath; share($wgetpath);
 
 my $script_name = "Image URL Auto Grabber and Downloader, wget flavour";
-HexChat::register($script_name, '0.8.5', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
+HexChat::register($script_name, '0.8.6', 'Automatically grabs and downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -42,12 +34,15 @@ sub hookfn {
 	my @words = split(/\s+/, $text);
 
 	foreach (@words) {
-		if ($_ =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
+		my $str = $_;
+		next unless(substr($str, 0, 4) eq 'http');
+
+		if ($str =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
 			$active = 1;
 			my $t = undef;
 
 			do {
-				$t = threads->create('dlfunc', $_);
+				$t = threads->create('dlfunc', $str);
 				sleep 1 unless(defined($t));
 			} unless (defined($t));
 
@@ -68,6 +63,15 @@ sub hookfn {
 
 sub dlfunc($) {
 	my $url = shift;
+
+	if (-f "/bin/wget") {
+		$wgetpath = '/bin/wget';
+	} elsif (-f "/usr/bin/wget") {
+		$wgetpath = '/usr/bin/wget';
+	} elsif (-f "/usr/local/bin/wget") {
+		$wgetpath = '/usr/local/bin/wget';
+	}
+
 	my $extension = is_picture($url);
 
 	if (defined($extension)) {
@@ -80,17 +84,17 @@ sub dlfunc($) {
 		}
 
 		$url = urlencode($url);
-		system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $file, '-o', '/dev/null', $url);
+		system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $savepath, '-o', '/dev/null', $url);
 
-		if ($file =~ /(png|jpe?g|gif)$/i){
+		if ($savepath =~ /(png|jpe?g|gif)$/i){
 			my $im = Image::Magick->new();
 			my $rename = 1;
 			my (undef, undef, undef, $format) = $im->Ping($savepath);
 
 			if (defined($format)) {
-				$rename = 0 if (($format eq 'JPEG') and ($file =~ /jpe?g$/i));
-				$rename = 0 if (($format eq 'GIF') and ($file =~ /gif$/i));
-				$rename = 0 if (($format =~ /^PNG/) and ($file =~ /png$/i));
+				$rename = 0 if (($format eq 'JPEG') and ($savepath =~ /jpe?g$/i));
+				$rename = 0 if (($format eq 'GIF') and ($savepath =~ /gif$/i));
+				$rename = 0 if (($format =~ /^PNG/) and ($savepath =~ /png$/i));
 				rename $savepath, sprintf("%s.%s", $savepath, lc($format)) if ($rename == 1);
 			}
 

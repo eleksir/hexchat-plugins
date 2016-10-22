@@ -40,11 +40,9 @@ share($active);
 
 sub hookfn {
 	my ($nick, $text, $modechar) = @{$_[0]};
-	my $channel = HexChat::get_info('channel');
-	my $network = HexChat::get_info('network');
+	my $channel = HexChat::get_info('channel') // '';
+	my $network = HexChat::get_info('network') // '';
 	$nick =    '' unless(defined($nick));
-	$channel = '' unless(defined($channel));
-	$network = '' unless(defined($network));
 
 # load settings, parse whitelists here
 	my $flag = 1; # show notification
@@ -96,16 +94,19 @@ sub hookfn {
 	}
 
 # settings are loaded
-	return EAT_NONE if ($flag == 0);
+	if ($flag == 0) {
+		undef $nick;     undef $text;     undef $modechar;
+		undef $channel;  undef $network;
+		undef $flag;
+		undef $nicklist; undef $chanlist; undef $netlist;
+		return EAT_NONE;
+	}
 
-	HexChat::strip_code($text);
-	$text =~ s/\"/\\"/g;
-	my $topic = sprintf("%s at %s says:\n", $nick, $channel);
 	$active = 1;
 	my $t = undef;
 
 	do {
-		$t = threads->create('notify', $topic, $text);
+		$t = threads->create('notify', $channel, $nick, $text);
 		sleep 1 unless(defined($t));
 	} unless (defined($t));
 
@@ -114,7 +115,7 @@ sub hookfn {
 	if ($active == 1) {
 		hook_timer( 500, \&timeraction);
 	}
-	
+
 	undef $nick;     undef $text;     undef $modechar;
 	undef $channel;  undef $network;
 	undef $flag;
@@ -124,10 +125,12 @@ sub hookfn {
 }
 
 sub notify(@) {
-	my($topic, $text) = @_;
+	my($channel, $nick, $text) = @_;
+	HexChat::strip_code($text);
+	my $topic = sprintf("%s at %s says:\n", $nick, $channel);
 	system("notify-send", "-u", "normal", "-t", "12000", "-a", "hexchat", $topic, "-i", "hexchat", $text);
+	undef $channel, undef $nick, undef $text; undef $topic;
 	$active = 0;
-	undef $topic; undef $text;
 }
 
 sub timeraction {
