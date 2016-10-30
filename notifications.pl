@@ -14,6 +14,7 @@ sub hookfn;
 sub freehooks;
 sub timeraction;
 sub notify_cmd;
+sub encodestr;
 
 my $script_name = "Notification plugin";
 my $help = 'Usage:
@@ -25,7 +26,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.8.5', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.9', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -120,7 +121,12 @@ sub hookfn {
 
 sub notify(@) {
 	my($channel, $nick, $text) = @_;
+# notify-send|notification daemons are use limited html formatting for message body, so we have
+# either use only topic without body or encode message body, which is a bit resource hungry
 	HexChat::strip_code($text);
+	HexChat::strip_code($nick);
+	$text = encodestr($text);
+	$nick = encodestr($nick);
 	my $topic = sprintf("%s at %s says:\n", $nick, $channel);
 	system("notify-send", "-u", "normal", "-t", "12000", "-a", "hexchat", $topic, "-i", "hexchat", $text);
 	undef $channel, undef $nick, undef $text; undef $topic;
@@ -370,4 +376,17 @@ sub freehooks {
 	}
 	
 	return HexChat::EAT_ALL;
+}
+
+sub encodestr {
+	my $str = shift;
+	$str = join('', map {
+		if ($_ eq '<') { $_ = '&lt;'; }
+		elsif ($_ eq '>') { $_ = '&gt;'; }
+		elsif ($_ eq '&') { $_ = '&amp;'; }
+		elsif ($_ eq '"') { $_ = '&quot;'}
+		else { $_ = $_; }
+	} split(//, $str));
+
+	return $str;
 }
