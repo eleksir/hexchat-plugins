@@ -26,7 +26,7 @@ my $help = 'Usage:
 /notify show                     - shows whitelists and their statuses
 ';
 
-register($script_name, '0.9', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.9.1', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my @hooks;
@@ -341,7 +341,7 @@ sub loadlist($){
 	my $val = HexChat::plugin_pref_get($setting);
 
 	unless (defined($val)) {
-		savesetting($setting, encode_base64(''));
+		savesetting($setting, encode_base64('', ''));
 		$val = '';
 	}
 
@@ -352,7 +352,7 @@ sub loadlist($){
 
 sub savelist(@) {
 	my $setting = shift;
-	my @list = map { encode_base64($_); } @_;
+	my @list = map { encode_base64($_, ''); } @_;
 	my $value = join(' ', @list);
 	return savesetting($setting, $value);
 }
