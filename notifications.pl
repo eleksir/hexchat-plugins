@@ -23,11 +23,11 @@ my $help = 'Usage:
 /notify status                   - shows statuses of whitelists
 /notify show                     - shows whitelists and their statuses
 /notify add this chan|net        - adds currently open channel|network to apropriate whitelist
-/notify add nick|chan|net <name> - adds <name> to apropriate whitelist, <name> can be '.' for currently open chan or net
-/notify del nick|chan|net <name> - removes <name> from apropriate whitelist, <name> can be '.' for currently open chan or net
+/notify add nick|chan|net <name> - adds <name> to apropriate whitelist, <name> can be \'.\' for currently open chan or net
+/notify del nick|chan|net <name> - removes <name> from apropriate whitelist, <name> can be \'.\' for currently open chan or net
 ';
 
-register($script_name, '0.10', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.10.1', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 
