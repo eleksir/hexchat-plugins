@@ -20,15 +20,17 @@ my $script_name = "Notification plugin";
 my $help = 'Usage:
 /notify enable nick|chan|net     - enables apropriate whitelist
 /notify disable nick|chan|net    - disables apropriate whitelist
-/notify add nick|chan|net <name> - adds <name> to apropriate whitelist
-/notify del nick|chan|net <name> - removes <name> from apropriate whitelist
 /notify status                   - shows statuses of whitelists
 /notify show                     - shows whitelists and their statuses
+/notify add this chan|net        - adds currently open channel|network to apropriate whitelist
+/notify add nick|chan|net <name> - adds <name> to apropriate whitelist, <name> can be '.' for currently open chan or net
+/notify del nick|chan|net <name> - removes <name> from apropriate whitelist, <name> can be '.' for currently open chan or net
 ';
 
-register($script_name, '0.9.1', 'Sends *nix desktop notifications', \&freehooks);
+register($script_name, '0.10', 'Sends *nix desktop notifications', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
+
 my @hooks;
 push @hooks, hook_print('Channel Message', \&hookfn);
 push @hooks, hook_print('Channel Msg Hilight', \&hookfn);
@@ -228,7 +230,37 @@ sub notify_cmd {
 			$msg .= "Whitelisted networks = " . join( ', ', loadlist('nets')) . "\n";
 		} elsif ($cmd eq 'add') {
 			if ((defined($entity)) and (defined($value))) {
-				if ($entity eq 'nick') {
+				if ($entity eq 'this') {
+					if ($value eq 'chan') {
+						$value = HexChat::get_info("channel");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+
+						my @chans = (loadlist('chans'), $value);
+
+						unless (defined(savelist('chans', @chans))) {
+							return HexChat::EAT_ALL;
+						}
+
+						$msg = sprintf("Channels whitelist now: %s\n", join(', ', @chans));
+					} elsif ($value eq 'net') {
+						$value = HexChat::get_info("network");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+
+						my @nets = (loadlist('nets'), $value);
+
+						unless (defined(savelist('nets', @nets))) {
+							return HexChat::EAT_ALL;
+						}
+
+						$msg = sprintf("Networks whitelist now: %s\n", join(', ', @nets));
+					}
+				} elsif ($entity eq 'nick') {
 					my @nicks = (loadlist('nicks'), $value);
 
 					unless (defined(savelist('nicks', @nicks))) {
@@ -237,6 +269,14 @@ sub notify_cmd {
 
 					$msg = sprintf("Nicks whitelist now: %s\n", join(', ', @nicks));
 				} elsif ($entity eq 'chan') {
+					if ($value eq '.') {
+						$value = HexChat::get_info("channel");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+					}
+
 					my @chans = (loadlist('chans'), $value);
 
 					unless (defined(savelist('chans', @chans))) {
@@ -245,6 +285,14 @@ sub notify_cmd {
 
 					$msg = sprintf("Channels whitelist now: %s\n", join(', ', @chans));
 				} elsif ($entity eq 'net') {
+					if ($value eq '.') {
+						$value = HexChat::get_info("network");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+					}
+
 					my @nets = (loadlist('nets'), $value);
 
 					unless (defined(savelist('nets', @nets))) {
@@ -256,6 +304,54 @@ sub notify_cmd {
 			}
 		} elsif ($cmd eq 'del') {
 			if ((defined($entity)) and (defined($value))) {
+				if ($entity eq 'this') {
+					if ($value eq 'chan') {
+						$value = HexChat::get_info("channel");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+
+						my @list = loadlist('chans');
+						my @chanlist;
+
+						foreach (@list) {
+							next if($_ eq $value);
+							push @chanlist, $_;
+						}
+
+						@list = -1; undef @list;
+
+						unless (defined(savelist('chans', @chanlist))) {
+							return HexChat::EAT_ALL;
+						}
+
+						$msg = sprintf("Channels whitelist now: %s\n", join(', ', @chanlist));
+					} elsif ($value eq 'net') {
+						$value = HexChat::get_info("network");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+
+						my @list = loadlist('nets');
+						my @netlist;
+
+						foreach (@list) {
+							next if($_ eq $value);
+							push @netlist, $_;
+						}
+
+						@list = -1; undef @list;
+
+						unless (defined(savelist('nets', @netlist))) {
+							return HexChat::EAT_ALL;
+						}
+
+						$msg = sprintf("Networks whitelist now: %s\n", join(', ', @netlist));
+					}
+				}
+
 				if ($entity eq 'nick') {
 					my @list = loadlist('nicks');
 					my @nicklist;
@@ -278,6 +374,14 @@ sub notify_cmd {
 					my @list = loadlist('chans');
 					my @chanlist;
 
+					if ($value eq '.') {
+						$value = HexChat::get_info("channel");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+					}
+
 					foreach (@list) {
 						next if($_ eq $value);
 						push @chanlist, $_;
@@ -296,8 +400,15 @@ sub notify_cmd {
 					my @list = loadlist('nets');
 					my @netlist;
 
+					if ($value eq '.') {
+						$value = HexChat::get_info("network");
+
+						if ((! defined($value)) or ($value eq '')) {
+							return HexChat::EAT_ALL;
+						}
+					}
+
 					foreach (@list) {
-						HexChat::printf("_: %s, value: %s", $_, $value);
 						next if($_ eq $value);
 						push @netlist, $_;
 					}
@@ -314,7 +425,7 @@ sub notify_cmd {
 		}
 	}
 
-	unless(defined($msg)){
+	unless(defined($msg)) {
 		HexChat::print($help);
 	} else {
 		HexChat::print($msg);
