@@ -1,3 +1,7 @@
+# one of hexchat contributors said this on freenode's #hexchat
+# 2017-11-26 15:36 < TingPing> eleksir, the hexchat api isn't thread safe
+# on practice it developes to memory leak
+
 use HexChat qw(:all);
 use threads;
 use threads::shared;
@@ -7,7 +11,14 @@ use warnings "all";
 
 use MIME::Base64;
 use URI::URL;
-use Image::Magick;
+my $IMAGEMAGICK = undef; # use on demand, perl that shipped with hexchat-2.12.4 on windows miss this module 
+if ($^O ne 'cygwin') {   # cygwin 2.882 64-bit has broken Image::Magick
+	$IMAGEMAGICK = eval {
+		require Image::Magick;
+		import Image::Magick qw(ping);
+		return 1;
+	}
+}
 
 sub dlfunc($);    # thread, that checks and downloads stuff
 sub is_picture($);
@@ -23,7 +34,7 @@ sub freehooks;
 my $wgetpath; share($wgetpath);
 
 my $script_name = "Image URL Downloader";
-HexChat::register($script_name, '0.9', 'Automatically downloads image URLs via wget', \&freehooks);
+HexChat::register($script_name, '0.10', 'Automatically downloads image URLs via wget', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my $help = 'Usage:
@@ -132,35 +143,53 @@ sub dlfunc($) {
 		$wgetpath = '/usr/bin/wget';
 	} elsif (-f "/usr/local/bin/wget") {
 		$wgetpath = '/usr/local/bin/wget';
+	} elsif (-f "c:\\perl\\bin\\wget.exe") {
+		$wgetpath = "c:\\perl\\bin\\wget.exe";
+	} elsif (-f "c:\\perl64\\bin\\wget.exe") {
+		$wgetpath = "c:\\perl64\\bin\\wget.exe";
+	} elsif (-f "$ENV{'PROGRAMFILES'}\\perl\\bin\\wget.exe") {
+		$wgetpath = "$ENV{'PROGRAMFILES'}\\perl\\bin\\wget.exe";
+	} elsif (-f "$ENV{'PROGRAMFILES'}\\perl64\\bin\\wget.exe") {
+		$wgetpath = "$ENV{'PROGRAMFILES'}\\perl64\\bin\\wget.exe";
 	}
 
 	my $extension = is_picture($url);
 
 	if (defined($extension)) {
 		my $savepath = sprintf("%s/imgsave", HexChat::get_info("configdir"));
+
+		if ($^O eq 'MSWin32') {
+			$savepath = $ENV{'USERPROFILE'} . '/Pictures';
+		}
+
 		mkdir ($savepath) unless (-d $savepath);
-		$savepath = $savepath . "/" . s/[^\w!., -#]/_/gr . ".$extension";
 
 		if ( (lc($url) =~ /\.(gif|jpeg|png|webm|mp4)$/) and ($1 eq $extension) ){
-				$savepath = HexChat::get_info("configdir") . "/imgsave/" . s/[^\w!., -#]/_/gr;
+			$savepath = $savepath . "/" . s/[^\w!., -#\?\:]/_/gr;
+		} else {
+			$savepath = $savepath . "/" . s/[^\w!., -#\?\:]/_/gr . ".$extension";
 		}
 
 		$url = urlencode($url);
-		system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $savepath, '-o', '/dev/null', $url);
+		system($wgetpath, '--no-check-certificate', '-q', '-T', '20', '-O', $savepath, '-o', '/dev/null', "$url");
 
-		if ($savepath =~ /(png|jpe?g|gif)$/i){
-			my $im = Image::Magick->new();
-			my $rename = 1;
-			my (undef, undef, undef, $format) = $im->Ping($savepath);
+		if (($^O ne 'cygwin') and defined($IMAGEMAGICK)) {
+			eval {
+				if ($savepath =~ /(png|jpe?g|gif)$/i){
+					my $im = Image::Magick->new();
+					my $rename = 1;
+					my (undef, undef, undef, $format) = $im->Ping($savepath);
 
-			if (defined($format)) {
-				$rename = 0 if (($format eq 'JPEG') and ($savepath =~ /jpe?g$/i));
-				$rename = 0 if (($format eq 'GIF') and ($savepath =~ /gif$/i));
-				$rename = 0 if (($format =~ /^PNG/) and ($savepath =~ /png$/i));
-				rename $savepath, sprintf("%s.%s", $savepath, lc($format)) if ($rename == 1);
+					if (defined($format)) {
+						$rename = 0 if (($format eq 'JPEG') and ($savepath =~ /jpe?g$/i));
+						$rename = 0 if (($format eq 'GIF') and ($savepath =~ /gif$/i));
+						$rename = 0 if (($format =~ /^PNG/) and ($savepath =~ /png$/i));
+						rename $savepath, sprintf("%s.%s", $savepath, lc($format)) if ($rename == 1);
+					}
+
+					undef $im; undef $rename;
+				}
 			}
-
-			undef $im; undef $rename;
 		}
 
 		undef $savepath;
