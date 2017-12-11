@@ -112,7 +112,7 @@ sub hookfn {
 	return HexChat::EAT_NONE;
 }
 
-sub loadliststatus($){
+sub loadliststatus($) {
 	my $listtype = shift;
 	my $list = HexChat::plugin_pref_get($listtype);
 
@@ -125,7 +125,7 @@ sub loadliststatus($){
 	return $list;
 }
 
-sub loadlist($){
+sub loadlist($) {
 	my $setting = shift;
 	my $val = HexChat::plugin_pref_get($setting);
 
@@ -284,6 +284,7 @@ sub dl_cmd {
 	} else {
 		HexChat::print($msg);
 	}
+
 	undef $cmd; undef $entity; undef $value; undef $msg;
 	return HexChat::EAT_ALL;
 }

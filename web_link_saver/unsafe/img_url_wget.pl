@@ -78,7 +78,6 @@ sub hookfn {
 	}
 
 	undef $nicklist;
-
 	my @words = split(/\s+/, $text);
 
 	foreach (@words) {
@@ -239,7 +238,7 @@ sub urlencode($) {
 	return $url;
 }
 
-sub loadliststatus($){
+sub loadliststatus($) {
 	my $listtype = shift;
 	my $list = HexChat::plugin_pref_get($listtype);
 
@@ -252,7 +251,7 @@ sub loadliststatus($){
 	return $list;
 }
 
-sub loadlist($){
+sub loadlist($) {
 	my $setting = shift;
 	my $val = HexChat::plugin_pref_get($setting);
 
@@ -298,7 +297,7 @@ sub dl_cmd {
 
 	if (defined($cmd)) {
 		if ($cmd eq 'enable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('dl_nicklist', '1'))) {
 					$msg = "Nicks blacklist now enabled\n";
 				}
@@ -308,7 +307,7 @@ sub dl_cmd {
 				}
 			}
 		} elsif ($cmd eq 'disable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('dl_nicklist', '0'))) {
 					$msg = "Nicks blacklist now disabled\n";
 				}
@@ -406,7 +405,7 @@ sub dl_cmd {
 		}
 	}
 
-	unless(defined($msg)) {
+	unless (defined($msg)) {
 		HexChat::print($help);
 	} else {
 		HexChat::print($msg);

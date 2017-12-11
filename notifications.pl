@@ -89,7 +89,7 @@ sub hookfn {
 			next unless(defined($_));
 			next if($_ eq '');
 
-			if ($_ eq $network){
+			if ($_ eq $network) {
 				$flag = 1;
 				last;
 			}
@@ -175,7 +175,7 @@ sub notify_cmd {
 				else { $msg .= "Networks whitelist: enabled\n"; }
 			}
 		} elsif ($cmd eq 'enable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('nicklist', '1'))) {
 					$msg = "Nicks whitelist now enabled\n";
 				}
@@ -189,7 +189,7 @@ sub notify_cmd {
 				}
 			}
 		} elsif ($cmd eq 'disable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('nicklist', '0'))) {
 					$msg = "Nicks whitelist now disabled\n";
 				}
@@ -425,7 +425,7 @@ sub notify_cmd {
 		}
 	}
 
-	unless(defined($msg)) {
+	unless (defined($msg)) {
 		HexChat::print($help);
 	} else {
 		HexChat::print($msg);
@@ -434,7 +434,7 @@ sub notify_cmd {
 	return HexChat::EAT_ALL;
 }
 
-sub loadliststatus($){
+sub loadliststatus($) {
 	my $listtype = shift;
 	my $list = HexChat::plugin_pref_get($listtype);
 
@@ -447,7 +447,7 @@ sub loadliststatus($){
 	return $list;
 }
 
-sub loadlist($){
+sub loadlist($) {
 	my $setting = shift;
 	my $val = HexChat::plugin_pref_get($setting);
 

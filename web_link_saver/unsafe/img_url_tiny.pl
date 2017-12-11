@@ -81,7 +81,6 @@ sub hookfn {
 	}
 
 	undef $nicklist;
-
 	my @words = split(/\s+/, $text);
 
 	foreach (@words) {
@@ -151,7 +150,7 @@ sub dlfunc($) {
 
 		mkdir ($savepath) unless (-d $savepath);
 
-		if ( (lc($url) =~ /\.(gif|jpeg|png|webm|mp4)$/) and ($1 eq $extension) ){
+		if ( (lc($url) =~ /\.(gif|jpe?g|png|webm|mp4)$/) and ($1 eq $extension) ) {
 			$savepath = $savepath . "/" . s/[^\w!., -#\:\?]/_/gr;
 		} else {
 			$savepath = $savepath . "/" . s/[^\w!., -#]\:\?/_/gr . ".$extension";
@@ -164,7 +163,7 @@ sub dlfunc($) {
 
 		if (($^O ne 'cygwin') and defined($IMAGEMAGICK)) {
 			eval {
-				if ((-f $savepath) and ($savepath =~ /(png|jpe?g|gif)$/i)){
+				if ((-f $savepath) and ($savepath =~ /(png|jpe?g|gif)$/i)) {
 					my $im = Image::Magick->new();
 					my $rename = 1;
 					my (undef, undef, undef, $format) = $im->Ping($savepath);
@@ -219,7 +218,7 @@ sub urlencode($) {
 	return $url;
 }
 
-sub loadliststatus($){
+sub loadliststatus($) {
 	my $listtype = shift;
 	my $list = HexChat::plugin_pref_get($listtype);
 
@@ -232,7 +231,7 @@ sub loadliststatus($){
 	return $list;
 }
 
-sub loadlist($){
+sub loadlist($) {
 	my $setting = shift;
 	my $val = HexChat::plugin_pref_get($setting);
 
@@ -278,7 +277,7 @@ sub dl_cmd {
 
 	if (defined($cmd)) {
 		if ($cmd eq 'enable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('dl_nicklist', '1'))) {
 					$msg = "Nicks blacklist now enabled\n";
 				}
@@ -288,7 +287,7 @@ sub dl_cmd {
 				}
 			}
 		} elsif ($cmd eq 'disable') {
-			if($entity eq 'nick') {
+			if ($entity eq 'nick') {
 				if (defined(savesetting('dl_nicklist', '0'))) {
 					$msg = "Nicks blacklist now disabled\n";
 				}
@@ -306,7 +305,7 @@ sub dl_cmd {
 				$msg .= "Nicks blacklist:    enabled\n";
 			}
 
-			$msg .= "Blacklisted nicks = " . join( ', ', loadlist('dl_nicks')) ."\n";
+			$msg .= "Blacklisted nicks = " . join( ', ', loadlist('dl_nicks')) . "\n";
 
 			if (loadliststatus('dl_domainlist') == 0) {
 				$msg .= "Domains blacklist:  disabled\n";
@@ -386,11 +385,12 @@ sub dl_cmd {
 		}
 	}
 
-	unless(defined($msg)) {
+	unless (defined($msg)) {
 		HexChat::print($help);
 	} else {
 		HexChat::print($msg);
 	}
+
 	undef $cmd; undef $entity; undef $value; undef $msg;
 	return HexChat::EAT_ALL;
 }

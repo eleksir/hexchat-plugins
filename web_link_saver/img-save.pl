@@ -71,7 +71,7 @@ sub cdlfunc($) {
 		$fname =~ s/[^\w!., -#]/_/g;
 		$savepath = $savepath . "/" . $fname . ".$extension";
 
-		if ( (lc($url) =~ /\.(gif|jpeg|png|webm|mp4)$/) and ($1 eq $extension) ){
+		if ( (lc($url) =~ /\.(gif|jpe?g|png|webm|mp4)$/) and ($1 eq $extension) ) {
 			$savepath = $ENV{'HOME'} . "/imgsave/" . $fname;
 		}
 
@@ -104,7 +104,7 @@ sub dlfunc(@) {
 
 	if (($^O ne 'cygwin') and defined($IMAGEMAGICK)) {
 		eval {
-			if ($file =~ /(png|jpe?g|gif)$/i){
+			if ($file =~ /(png|jpe?g|gif)$/i) {
 				my $im = Image::Magick->new();
 				my $rename = 1;
 				my (undef, undef, undef, $format) = $im->Ping($file);
