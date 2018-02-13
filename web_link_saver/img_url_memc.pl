@@ -2,7 +2,7 @@ use HexChat qw(:all);
 
 use strict;
 use warnings "all";
-use Socket; # hexchat in windows does not ship proper memcache interface, so we will
+use Socket; # hexchat in windows does not ship any memcache interface, so we will
             # use Socket module and memcache text protocol
 use Digest::MD5 qw(md5_base64);
 
@@ -14,7 +14,7 @@ sub savesetting(@);
 sub freehooks;
 
 my $script_name = "URL_Memcacher";
-HexChat::register($script_name, '0.3', 'Automatically stores URLs to Memcache', \&freehooks);
+HexChat::register($script_name, '0.3.1', 'Automatically stores URLs to Memcache', \&freehooks);
 
 HexChat::print("$script_name loaded\n");
 my $help = 'Usage:
@@ -66,7 +66,8 @@ sub hookfn {
 		my $str = $_;
 		next unless(substr($str, 0, 4) eq 'http');
 
-		if ($str =~ m{https?://([a-zA-Z0-9.-]+\.[a-zA-Z]+)/(?:.*)}) {
+# disregard idn, until it cause real troubles :)
+		if ($str =~ m{https?://([a-zA-Z0-9\.\-_]+\.[a-zA-Z]+)/(?:.*)}) {
 			my $domain = $1;
 			my $domainlist = loadliststatus('dl_domainlist');
 
@@ -95,9 +96,9 @@ sub hookfn {
 			if (socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'))) {
 				my $iaddr = inet_aton($host);
 				my $paddr = sockaddr_in($port, $iaddr);
-				
+
 				if (connect(SOCK, $paddr)) {
-					send (SOCK, sprintf("set %s 0 0 %s noreply\r\n%s\r\nquit\r\n", md5_base64($str), length($str), $str), 0);
+					send (SOCK, sprintf("set xchtlink_%s 0 0 %s noreply\r\n%s\r\nquit\r\n", md5_base64($str), length($str), $str), 0);
 				}
 
 				close(SOCK);
