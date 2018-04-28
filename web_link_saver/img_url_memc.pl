@@ -94,6 +94,7 @@ sub hookfn {
 			undef $domainlist;
 
 			if (socket(SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'))) {
+				setsockopt($socket, IPPROTO_TCP, TCP_NODELAY, 1);
 				my $iaddr = inet_aton($host);
 				my $paddr = sockaddr_in($port, $iaddr);
 
