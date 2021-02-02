@@ -1,24 +1,30 @@
-use HexChat qw(:all);
-
+use 5.018;
 use strict;
-use warnings "all";
-use HTTP::Tiny;
+use warnings;
 use utf8;
-
-binmode STDOUT, ':utf8';
-binmode STDERR, ':utf8';
+use open qw (:std :utf8);
+use HTTP::Tiny;
+use HexChat qw (:all);
 
 sub hookfn;
-sub loadliststatus($);
-sub loadlist($);
-sub savelist(@);
-sub savesetting(@);
+sub listenabled ($);
+sub loadlist ($);
+sub savelist (@);
+sub savesetting (@);
 sub freehooks;
 
 my $script_name = "img_url_myapi.pl";
-HexChat::register($script_name, '0.1', 'Automatically stores URLs to myapi', \&freehooks);
+my $script_version = '0.2';
+my $script_description = 'Automatically stores URLs to myapi';
 
-HexChat::print("$script_name loaded\n");
+register (
+	$script_name,
+	$script_version,
+	$script_description,
+	\&freehooks
+);
+
+print "$script_name loaded\n";
 my $help = 'Usage:
 /dl enable nick|domain <name>  - enable nick or domain blacklist
 /dl disable nick|domain <name> - disable nick or domain blacklist
@@ -28,208 +34,214 @@ my $help = 'Usage:
 /dl info                       - same as above
 ';
 my @hooks;
-push @hooks, HexChat::hook_print('Channel Message', \&hookfn);
-push @hooks, HexChat::hook_print('Channel Msg Hilight', \&hookfn);
-push @hooks, HexChat::hook_print('Channel Action', \&hookfn);
-push @hooks, HexChat::hook_print('Channel Action Hilight', \&hookfn);
-push @hooks, HexChat::hook_command('dl', \&dl_cmd);
+push @hooks, hook_print ('Channel Message', \&hookfn);
+push @hooks, hook_print ('Channel Msg Hilight', \&hookfn);
+push @hooks, hook_print ('Channel Action', \&hookfn);
+push @hooks, hook_print ('Channel Action Hilight', \&hookfn);
+push @hooks, hook_command ('dl', \&dl_cmd);
 
 
 sub hookfn {
 	my ($nick, $text, $modechar) = @{$_[0]};
-	my $nicklist = loadliststatus('dl_nicklist');
 
-	if ($nicklist != 0) {
-		my @nicklist = loadlist('dl_nicks');
+	if (listenabled 'dl_nicklist') {
+		my @nicklist = loadlist 'dl_nicks';
 
-		foreach (@nicklist) {
-			next unless(defined($_));
-			next if($_ eq '');
+		foreach my $nickname (@nicklist) {
+			next unless (defined $nickname);
+			next if (($nickname eq '') || ($nickname ne $nick));
 
-			if ($_ eq $nick) {
-				undef $nick; undef $text; undef $modechar;
-				undef $nicklist;
-				@nicklist = -1; undef @nicklist;
-				return HexChat::EAT_NONE;
-			}
+			$nick = '';      undef $nick; 
+			$text = '';      undef $text;
+			$modechar = '';  undef $modechar;
+			$#nicklist = -1; undef @nicklist;
+			return EAT_NONE;
 		}
 
-		@nicklist = -1; undef @nicklist;
+		$#nicklist = -1; undef @nicklist;
 	}
 
-	undef $nicklist;
+	my @words = split /\s+/, $text;
 
-	my @words = split(/\s+/, $text);
-
-	foreach (@words) {
-		my $str = $_;
-		next unless(substr($str, 0, 4) eq 'http');
+	foreach my $str (@words) {
+		next unless (substr ($str, 0, 4) eq 'http');
 
 # disregard idn, until it cause real troubles :)
 		if ($str =~ m{https?://([a-zA-Z0-9\.\-_]+\.[a-zA-Z]+)/(?:.*)}) {
 			my $domain = $1;
-			my $domainlist = loadliststatus('dl_domainlist');
 
-			if ($domainlist != 0) {
-				my @domainlist = loadlist('dl_domains');
+			if (listenabled 'dl_domainlist') {
+				my @domainlist = loadlist 'dl_domains';
 
-				foreach (@domainlist) {
-					next unless(defined($_));
-					next if($_ eq '');
+				foreach my $dom (@domainlist) {
+					next unless (defined $dom);
+					next if (($dom eq '') || ($dom ne $domain));
 
-					if ($_ eq $domain) {
-						undef $nick; undef $text; undef $modechar;
-						@words = -1; undef @words;
-						undef $str; undef $domain;
-						undef $domainlist;
-						@domainlist = -1; undef @domainlist;
-						return HexChat::EAT_NONE;
-					}
+					$nick = '';        undef $nick;
+					$text = '';        undef $text;
+					$modechar = '';    undef $modechar;
+					$#words = -1;      undef @words;
+					$str = '';         undef $str;
+					$domain = '';      undef $domain;
+					$#domainlist = -1; undef @domainlist;
+					return EAT_NONE;
 				}
 
-				@domainlist = -1, undef @domainlist;
+				$#domainlist = -1, undef @domainlist;
 			}
 
-			undef $domainlist;
-
-			my $http2 = HTTP::Tiny->new(default_headers => { 'url' => $str });
-			$http2->get('http://localhost/api/image_dl');
-			$http2 = undef; undef $http2;
+			my $http2 = HTTP::Tiny->new (default_headers => { 'url' => $str });
+			$http2->get ('http://localhost/api/image_dl');
+			$http2 = ''; undef $http2;
 		}
 	}
 
-	@words = -1; undef @words;
-	undef $nick; undef $text; undef $modechar;
+	$#words = -1;   undef @words;
+	$nick = '';     undef $nick;
+	$text = '';     undef $text;
+	$modechar = ''; undef $modechar;
 
-	return HexChat::EAT_NONE;
+	return EAT_NONE;
 }
 
-sub loadliststatus($) {
+sub listenabled ($) {
 	my $listtype = shift;
-	my $list = HexChat::plugin_pref_get($listtype);
+	my $list = plugin_pref_get $listtype;
 
-	unless (defined($list)) {
-		savesetting('list', '0');
+	unless (defined $list) {
+		savesetting ('list', '0');
 		$list = 0;
 	}
 
-	undef $listtype;
+	$listtype = ''; undef $listtype;
 	return $list;
 }
 
-sub loadlist($) {
+sub loadlist ($) {
 	my $setting = shift;
-	my $val = HexChat::plugin_pref_get($setting);
+	my $value = plugin_pref_get $setting;
 
-	unless (defined($val)) {
-		savesetting($setting, encode_base64('', ''));
-		$val = '';
+	unless (defined $value) {
+		savesetting $setting, encode_base64('', '');
+		$value = '';
 	}
 
-	my @values = map { decode_base64($_); } split(/ /, $val);
-	undef $setting; undef $val;
+	my @values = map { decode_base64 ($_); } split (/ /, $value);
+	$setting = ''; undef $setting;
+	$value =''; undef $value;
 	return @values;
 }
 
-sub savelist(@) {
+sub savelist (@) {
 	my $setting = shift;
 	my @list = map { encode_base64($_, ''); } @_;
-	my $value = join(' ', @list);
-	@list = -1; undef @list;
-	return savesetting($setting, $value);
+	my $value = join (' ', @list);
+	$#list = -1; undef @list;
+	my $res = savesetting ($setting, $value);
+	$setting = ''; undef $setting;
+	$value =''; undef $value;
+	return $res;
 }
 
-sub savesetting(@) {
+sub savesetting (@) {
 	my $setting = shift;
 	my $value = shift;
 
-	if (HexChat::plugin_pref_set($setting, $value) == 0) {
-		HexChat::printf("Unable to save settings for %s\n", $script_name);
-		undef $setting; undef $value;
-		return undef;
+	unless (plugin_pref_set ($setting, $value)) {
+		printf "Unable to save settings for %s\n", $script_name;
+		$setting = ''; undef $setting;
+		$value = ''; undef $value;
+		return 0;
 	}
 
-	undef $setting;
+	$setting = ''; undef $setting;
+	$value = ''; undef $value;
 	return 1;
 }
 
 sub dl_cmd {
-	shift(@{$_[0]});
-	my $cmd = shift(@{$_[0]});
-	my $entity = shift(@{$_[0]});
-	my $value = join(' ', @{$_[0]});
-	HexChat::print("\n");
+	shift (@{$_[0]});
+	my $cmd = shift (@{$_[0]});
+	my $entity = shift (@{$_[0]});
+	my $value = join (' ', @{$_[0]});
+	print "\n";
 	my $msg = undef;
 
-	if (defined($cmd)) {
+	if (defined $cmd) {
 		if ($cmd eq 'enable') {
 			if($entity eq 'nick') {
-				if (defined(savesetting('dl_nicklist', '1'))) {
+				if (savesetting ('dl_nicklist', '1')) {
 					$msg = "Nicks blacklist now enabled\n";
 				}
 			} elsif ($entity eq 'domain') {
-				if (defined(savesetting('dl_domainlist', '1'))) {
+				if (savesetting ('dl_domainlist', '1')) {
 					$msg = "Domains blacklist now enabled\n";
 				}
 			}
 		} elsif ($cmd eq 'disable') {
 			if($entity eq 'nick') {
-				if (defined(savesetting('dl_nicklist', '0'))) {
+				if (savesetting ('dl_nicklist', '0')) {
 					$msg = "Nicks blacklist now disabled\n";
 				}
 			} elsif ($entity eq 'domain') {
-				if (defined(savesetting('dl_domainlist', '0'))) {
+				if (savesetting ('dl_domainlist', '0')) {
 					$msg = "Domains blacklist now disabled\n";
 				}
 			}
 		} elsif (($cmd eq 'show') or ($cmd eq 'info')) {
 			$msg = '';
 
-			if (loadliststatus('dl_nicklist') == 0) {
+			unless (listenabled 'dl_nicklist') {
 				$msg .= "Nicks blacklist:    disabled\n";
 			} else {
 				$msg .= "Nicks blacklist:    enabled\n";
 			}
 
-			$msg .= "Blacklisted nicks = " . join( ', ', loadlist('dl_nicks')) ."\n";
+			$msg .= "Blacklisted nicks = " . join ( ', ', loadlist ('dl_nicks')) ."\n";
 
-			if (loadliststatus('dl_domainlist') == 0) {
+			unless (listenabled 'dl_domainlist') {
 				$msg .= "Domains blacklist:  disabled\n";
 			} else {
 				$msg .= "Domains blacklist:  enabled\n";
 			}
 
-			$msg .= "Blacklisted domains = " . join( ', ', loadlist('dl_domains')) . "\n";
+			$msg .= "Blacklisted domains = " . join ( ', ', loadlist ('dl_domains')) . "\n";
 		} elsif ($cmd eq 'add') {
-			if ((defined($entity)) and (defined($value))) {
+			if ((defined $entity) && (defined $value)) {
 				if ($entity eq 'nick') {
-					my @nicks = (loadlist('dl_nicks'), $value);
+					my @nicks = (loadlist ('dl_nicks'), $value);
 
-					unless (defined(savelist('dl_nicks', @nicks))) {
-						undef $cmd; undef $entity; undef $value; undef $msg;
-						@nicks = -1; undef @nicks;
-						return HexChat::EAT_ALL;
+					unless (savelist ('dl_nicks', @nicks)) {
+						$cmd = '';    undef $cmd;
+						$entity = ''; undef $entity;
+						$value = '';  undef $value;
+						$msg = '';    undef $msg;
+						$#nicks = -1; undef @nicks;
+						return EAT_ALL;
 					}
 
-					$msg = sprintf("Nicks blacklist now: %s\n", join(', ', @nicks));
-					@nicks = -1; undef @nicks;
+					$msg = sprintf "Nicks blacklist now: %s\n", join (', ', @nicks);
+					$#nicks = -1; undef @nicks;
 				} elsif ($entity eq 'domain') {
-					my @domains = (loadlist('dl_domains'), $value);
+					my @domains = (loadlist ('dl_domains'), $value);
 
-					unless (defined(savelist('dl_domains', @domains))) {
-						undef $cmd; undef $entity; undef $value; undef $msg;
-						@domains = -1; undef @domains;
-						return HexChat::EAT_ALL;
+					unless (savelist('dl_domains', @domains)) {
+						$cmd = '';      undef $cmd;
+						$entity = '';   undef $entity;
+						$value = '';    undef $value;
+						$msg = '';      undef $msg;
+						$#domains = -1; undef @domains;
+						return EAT_ALL;
 					}
 
-					$msg = sprintf("Domains blacklist now: %s\n", join(', ', @domains));
-					@domains = -1; undef @domains;
+					$msg = sprintf "Domains blacklist now: %s\n", join (', ', @domains);
+					$#domains = -1; undef @domains;
 				}
 			}
 		} elsif ($cmd eq 'del') {
-			if ((defined($entity)) and (defined($value))) {
+			if ((defined $entity) and (defined $value)) {
 				if ($entity eq 'nick') {
-					my @list = loadlist('dl_nicks');
+					my @list = loadlist ('dl_nicks');
 					my @nicklist;
 
 					foreach (@list) {
@@ -237,18 +249,21 @@ sub dl_cmd {
 						push @nicklist, $_;
 					}
 
-					@list = -1; undef @list;
+					$#list = -1; undef @list;
 
-					unless (defined(savelist('dl_nicks', @nicklist))) {
-						undef $cmd; undef $entity; undef $value; undef $msg;
-						@nicklist = -1; undef @nicklist;
-						return HexChat::EAT_ALL;
+					unless (savelist ('dl_nicks', @nicklist)) {
+						$cmd = '';       undef $cmd;
+						$entity = '';    undef $entity;
+						$value = '';     undef $value;
+						$msg = '';       undef $msg;
+						$#nicklist = -1; undef @nicklist;
+						return EAT_ALL;
 					}
 
-					$msg = sprintf("Nicks blacklist now: %s\n", join(', ', @nicklist));
-					@nicklist = -1; undef @nicklist;
+					$msg = sprintf "Nicks blacklist now: %s\n", join (', ', @nicklist);
+					$#nicklist = -1; undef @nicklist;
 				} elsif ($entity eq 'domain') {
-					my @list = loadlist('dl_domains');
+					my @list = loadlist 'dl_domains';
 					my @domainlist;
 
 					foreach (@list) {
@@ -256,35 +271,41 @@ sub dl_cmd {
 						push @domainlist, $_;
 					}
 
-					@list = -1; undef @list;
+					$#list = -1; undef @list;
 
-					unless (defined(savelist('dl_domains', @domainlist))) {
-						undef $cmd; undef $entity; undef $value; undef $msg;
-						@domainlist = -1; undef @domainlist;
-						return HexChat::EAT_ALL;
+					unless (savelist ('dl_domains', @domainlist)) {
+						$cmd = '';         undef $cmd;
+						$entity = '';      undef $entity;
+						$value = '';       undef $value;
+						$msg = '';         undef $msg;
+						$#domainlist = -1; undef @domainlist;
+						return EAT_ALL;
 					}
 
-					$msg = sprintf("Domains blacklist now: %s\n", join(', ', @domainlist));
-					@domainlist = -1; undef @domainlist;
+					$msg = sprintf "Domains blacklist now: %s\n", join (', ', @domainlist);
+					$#domainlist = -1; undef @domainlist;
 				}
 			}
 		}
 	}
 
-	unless(defined($msg)) {
-		HexChat::print($help);
+	unless (defined $msg) {
+		print $help;
 	} else {
-		HexChat::print($msg);
+		print $msg;
 	}
 
-	undef $cmd; undef $entity; undef $value; undef $msg;
-	return HexChat::EAT_ALL;
+	$cmd = '';    undef $cmd;
+	$entity = ''; undef $entity;
+	$value = '';  undef $value;
+	$msg = '';    undef $msg;
+	return EAT_ALL;
 }
 
 sub freehooks {
 	foreach (@hooks) {
-		HexChat::unhook($_);
+		unhook $_;
 	}
 
-	return HexChat::EAT_ALL;
+	return EAT_ALL;
 }
