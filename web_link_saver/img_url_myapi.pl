@@ -13,7 +13,7 @@ sub savelist (@);
 sub savesetting (@);
 sub freehooks;
 
-my $script_name = "img_url_myapi.pl";
+my $script_name = 'img_url_myapi.pl';
 my $script_version = '0.2';
 my $script_description = 'Automatically stores URLs to myapi';
 
@@ -25,20 +25,22 @@ register (
 );
 
 print "$script_name loaded\n";
-my $help = 'Usage:
+my $help = << 'HELP';
+Usage:
 /dl enable nick|domain <name>  - enable nick or domain blacklist
 /dl disable nick|domain <name> - disable nick or domain blacklist
 /dl add nick|domain <name>     - adds nick or domain to apropriate blacklist
 /dl del nick|domain <name>     - removes nick or domain from apropriate blacklist
 /dl show                       - show blacklists
 /dl info                       - same as above
-';
+HELP
+
 my @hooks;
-push @hooks, hook_print ('Channel Message', \&hookfn);
-push @hooks, hook_print ('Channel Msg Hilight', \&hookfn);
-push @hooks, hook_print ('Channel Action', \&hookfn);
-push @hooks, hook_print ('Channel Action Hilight', \&hookfn);
-push @hooks, hook_command ('dl', \&dl_cmd);
+push @hooks, hook_print   ('Channel Message',        \&hookfn);
+push @hooks, hook_print   ('Channel Msg Hilight',    \&hookfn);
+push @hooks, hook_print   ('Channel Action',         \&hookfn);
+push @hooks, hook_print   ('Channel Action Hilight', \&hookfn);
+push @hooks, hook_command ('dl',                     \&dl_cmd);
 
 
 sub hookfn {
@@ -51,7 +53,7 @@ sub hookfn {
 			next unless (defined $nickname);
 			next if (($nickname eq '') || ($nickname ne $nick));
 
-			$nick = '';      undef $nick; 
+			$nick = '';      undef $nick;
 			$text = '';      undef $text;
 			$modechar = '';  undef $modechar;
 			$#nicklist = -1; undef @nicklist;
@@ -61,7 +63,7 @@ sub hookfn {
 		$#nicklist = -1; undef @nicklist;
 	}
 
-	my @words = split /\s+/, $text;
+	my @words = split /\s+/xms, $text;
 
 	foreach my $str (@words) {
 		next unless (substr ($str, 0, 4) eq 'http');
@@ -90,7 +92,7 @@ sub hookfn {
 				$#domainlist = -1, undef @domainlist;
 			}
 
-			my $http2 = HTTP::Tiny->new (default_headers => { 'url' => $str });
+			my $http2 = HTTP::Tiny->new ('default_headers' => { 'url' => $str });
 			$http2->get ('http://localhost/api/image_dl');
 			$http2 = ''; undef $http2;
 		}
@@ -107,14 +109,14 @@ sub hookfn {
 sub listenabled ($) {
 	my $listtype = shift;
 	my $list = plugin_pref_get $listtype;
+	$listtype = ''; undef $listtype;
 
-	unless (defined $list) {
-		savesetting ('list', '0');
-		$list = 0;
+	if (defined $list) {
+		return $list;
 	}
 
-	$listtype = ''; undef $listtype;
-	return $list;
+	savesetting 'list', '0';
+	return 0;
 }
 
 sub loadlist ($) {
@@ -122,96 +124,95 @@ sub loadlist ($) {
 	my $value = plugin_pref_get $setting;
 
 	unless (defined $value) {
-		savesetting $setting, encode_base64('', '');
+		savesetting $setting, encode_base64 ('', '');
 		$value = '';
 	}
 
 	my @values = map { decode_base64 ($_); } split (/ /, $value);
 	$setting = ''; undef $setting;
-	$value =''; undef $value;
+	$value = ''; undef $value;
 	return @values;
 }
 
 sub savelist (@) {
 	my $setting = shift;
-	my @list = map { encode_base64($_, ''); } @_;
+	my @list = map { encode_base64 ($_, ''); } @_;
 	my $value = join (' ', @list);
 	$#list = -1; undef @list;
-	my $res = savesetting ($setting, $value);
+	my $res = savesetting $setting, $value;
 	$setting = ''; undef $setting;
-	$value =''; undef $value;
+	$value = ''; undef $value;
 	return $res;
 }
 
 sub savesetting (@) {
 	my $setting = shift;
 	my $value = shift;
-
-	unless (plugin_pref_set ($setting, $value)) {
-		printf "Unable to save settings for %s\n", $script_name;
-		$setting = ''; undef $setting;
-		$value = ''; undef $value;
-		return 0;
-	}
-
+	my $result = plugin_pref_set $setting, $value;
 	$setting = ''; undef $setting;
 	$value = ''; undef $value;
-	return 1;
+
+	if ($result) {
+		return 1;
+	}
+
+	printf "Unable to save settings for %s\n", $script_name;
+	return 0;
 }
 
 sub dl_cmd {
 	shift (@{$_[0]});
-	my $cmd = shift (@{$_[0]});
-	my $entity = shift (@{$_[0]});
-	my $value = join (' ', @{$_[0]});
+	my $cmd =    shift @{$_[0]};
+	my $entity = shift @{$_[0]};
+	my $value =  join ' ', @{$_[0]};
 	print "\n";
-	my $msg = undef;
+	my $msg;
 
 	if (defined $cmd) {
 		if ($cmd eq 'enable') {
 			if($entity eq 'nick') {
-				if (savesetting ('dl_nicklist', '1')) {
+				if (savesetting 'dl_nicklist', '1') {
 					$msg = "Nicks blacklist now enabled\n";
 				}
 			} elsif ($entity eq 'domain') {
-				if (savesetting ('dl_domainlist', '1')) {
+				if (savesetting 'dl_domainlist', '1') {
 					$msg = "Domains blacklist now enabled\n";
 				}
 			}
 		} elsif ($cmd eq 'disable') {
 			if($entity eq 'nick') {
-				if (savesetting ('dl_nicklist', '0')) {
+				if (savesetting 'dl_nicklist', '0') {
 					$msg = "Nicks blacklist now disabled\n";
 				}
 			} elsif ($entity eq 'domain') {
-				if (savesetting ('dl_domainlist', '0')) {
+				if (savesetting 'dl_domainlist', '0') {
 					$msg = "Domains blacklist now disabled\n";
 				}
 			}
 		} elsif (($cmd eq 'show') or ($cmd eq 'info')) {
 			$msg = '';
 
-			unless (listenabled 'dl_nicklist') {
-				$msg .= "Nicks blacklist:    disabled\n";
-			} else {
+			if (listenabled 'dl_nicklist') {
 				$msg .= "Nicks blacklist:    enabled\n";
-			}
-
-			$msg .= "Blacklisted nicks = " . join ( ', ', loadlist ('dl_nicks')) ."\n";
-
-			unless (listenabled 'dl_domainlist') {
-				$msg .= "Domains blacklist:  disabled\n";
 			} else {
-				$msg .= "Domains blacklist:  enabled\n";
+				$msg .= "Nicks blacklist:    disabled\n";
 			}
 
-			$msg .= "Blacklisted domains = " . join ( ', ', loadlist ('dl_domains')) . "\n";
+			$msg .= 'Blacklisted nicks = ' . join ( ', ', loadlist ('dl_nicks')) . "\n";
+
+			if (listenabled 'dl_domainlist') {
+				$msg .= "Domains blacklist:  enabled\n";
+			} else {
+				$msg .= "Domains blacklist:  disabled\n";
+			}
+
+			$msg .= 'Blacklisted domains = ' . join ( ', ', loadlist ('dl_domains')) . "\n";
 		} elsif ($cmd eq 'add') {
 			if ((defined $entity) && (defined $value)) {
 				if ($entity eq 'nick') {
 					my @nicks = (loadlist ('dl_nicks'), $value);
 
-					unless (savelist ('dl_nicks', @nicks)) {
+					unless (savelist 'dl_nicks', @nicks) {
 						$cmd = '';    undef $cmd;
 						$entity = ''; undef $entity;
 						$value = '';  undef $value;
@@ -225,7 +226,7 @@ sub dl_cmd {
 				} elsif ($entity eq 'domain') {
 					my @domains = (loadlist ('dl_domains'), $value);
 
-					unless (savelist('dl_domains', @domains)) {
+					unless (savelist 'dl_domains', @domains) {
 						$cmd = '';      undef $cmd;
 						$entity = '';   undef $entity;
 						$value = '';    undef $value;
@@ -241,7 +242,7 @@ sub dl_cmd {
 		} elsif ($cmd eq 'del') {
 			if ((defined $entity) and (defined $value)) {
 				if ($entity eq 'nick') {
-					my @list = loadlist ('dl_nicks');
+					my @list = loadlist 'dl_nicks';
 					my @nicklist;
 
 					foreach (@list) {
@@ -251,7 +252,7 @@ sub dl_cmd {
 
 					$#list = -1; undef @list;
 
-					unless (savelist ('dl_nicks', @nicklist)) {
+					unless (savelist 'dl_nicks', @nicklist) {
 						$cmd = '';       undef $cmd;
 						$entity = '';    undef $entity;
 						$value = '';     undef $value;
@@ -273,7 +274,7 @@ sub dl_cmd {
 
 					$#list = -1; undef @list;
 
-					unless (savelist ('dl_domains', @domainlist)) {
+					unless (savelist 'dl_domains', @domainlist) {
 						$cmd = '';         undef $cmd;
 						$entity = '';      undef $entity;
 						$value = '';       undef $value;
@@ -289,10 +290,10 @@ sub dl_cmd {
 		}
 	}
 
-	unless (defined $msg) {
-		print $help;
-	} else {
+	if (defined $msg) {
 		print $msg;
+	} else {
+		print $help;
 	}
 
 	$cmd = '';    undef $cmd;
